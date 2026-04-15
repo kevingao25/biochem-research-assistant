@@ -1,0 +1,19 @@
+# Secrets - never commit these
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Airflow
+airflow/logs/
+airflow/*.pid
+
+# OS
+.DS_Store

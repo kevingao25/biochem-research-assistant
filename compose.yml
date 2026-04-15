@@ -1,0 +1,124 @@
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  # Primary relational database. Stores paper metadata: titles, authors,
+  # abstracts, arXiv IDs, download status, processing state.
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - biochem-network
+
+  # ── Qdrant ──────────────────────────────────────────────────────────────────
+  # Vector database. Stores paper embeddings (numerical representations of
+  # meaning) so we can search by semantic similarity, not just keywords.
+  # Port 6333: HTTP API  |  Port 6334: gRPC (faster for bulk operations)
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - biochem-network
+
+  # ── Ollama ───────────────────────────────────────────────────────────────────
+  # Local LLM server. Runs open-source models (llama, mistral, etc.) on your
+  # machine. No API keys, no cost, no data leaving your computer.
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/version || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - biochem-network
+
+  # ── Airflow ──────────────────────────────────────────────────────────────────
+  # Workflow orchestrator. Runs scheduled pipelines (DAGs) that fetch arXiv
+  # papers, download PDFs, extract text, and trigger indexing.
+  # Uses PostgreSQL as its own backend database (separate from ours).
+  airflow:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - biochem-network
+
+  # ── FastAPI ───────────────────────────────────────────────────────────────────
+  # REST API layer. The interface between the outside world and our data.
+  # Your wife's frontend (or your own scripts) will call this API to search
+  # papers, ask questions, and manage the library.
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      QDRANT_URL: http://qdrant:6333
+      OLLAMA_URL: http://ollama:11434
+      API_SECRET_KEY: ${API_SECRET_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    volumes:
+      - ./api:/app
+    networks:
+      - biochem-network
+
+# ── Volumes ────────────────────────────────────────────────────────────────────
+# Named volumes persist data between container restarts. Without these,
+# every time you stop Docker you'd lose your database and vector index.
+volumes:
+  postgres_data:
+  qdrant_data:
+  ollama_data:
+  airflow_logs:
+
+# ── Network ────────────────────────────────────────────────────────────────────
+# All services share this network so they can reach each other by service name.
+# e.g. the api container connects to "postgres:5432", not "localhost:5432"
+networks:
+  biochem-network:
+    driver: bridge
