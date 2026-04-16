@@ -11,6 +11,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     healthcheck:
@@ -33,7 +34,7 @@ services:
       - "6333:6333"
       - "6334:6334"
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/6333' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,7 +51,7 @@ services:
     ports:
       - "11434:11434"
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/version || exit 1"]
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/11434' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -97,6 +98,11 @@ services:
       API_SECRET_KEY: ${API_SECRET_KEY}
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c 'cat < /dev/null > /dev/tcp/localhost/8000' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       postgres:
         condition: service_healthy

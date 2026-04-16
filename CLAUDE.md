@@ -45,13 +45,24 @@ Current progress: **Week 1 — Infrastructure Setup** (in progress)
 
 ## Documentation Policy
 
-Always fetch the latest official docs before writing code involving a library or service. Do not rely on training data for API signatures, configuration options, or version-specific behavior — these change frequently. Use the context7 MCP tool to fetch current docs.
+**Always fetch the latest official docs before writing code involving a library or service.** Do not rely on training data for API signatures, configuration options, or version-specific behavior — these change frequently. Use the context7 MCP tool to fetch current docs.
+
+This is not optional. Skipping this step caused a multi-session debugging failure: training data knew Airflow 2.x, not 3.x. Commands like `airflow webserver` and `airflow users create` no longer exist in 3.x. The `--daemon` flag masked crashes. Thirty minutes of debugging resulted from not reading ten minutes of docs.
+
+**The rule: before writing any Dockerfile, entrypoint, or config for a service, fetch its current docs first.**
 
 Key doc sources:
 - Airflow: https://airflow.apache.org/docs/
 - Qdrant: https://qdrant.tech/documentation/
 - FastAPI: https://fastapi.tiangolo.com/
 - PostgreSQL: https://www.postgresql.org/docs/17/
+
+## Docker / Infrastructure Principles
+
+- **Understand the base image's ENTRYPOINT before extending it.** Official images (e.g. `apache/airflow`) have their own entrypoints that intercept your `CMD`. Always check what the base image does before writing a Dockerfile that extends it.
+- **Never use `--daemon` inside Docker containers.** Daemonized processes detach from stdout, so crashes produce no logs. Use `&` to background a process instead — it stays in the process tree and Docker can see its output.
+- **`exec` the main process.** Use `exec airflow scheduler` (not just `airflow scheduler`) so the main process becomes PID 1. Docker uses PID 1's exit to detect crashes.
+- **Test health endpoints explicitly.** When a service has no health logs, check whether the health endpoint URL itself is correct before assuming the service is broken.
 
 ## Git Commits
 
@@ -72,3 +83,5 @@ Key doc sources:
 - Do not skip explanations because something "seems obvious"
 - Do not introduce a tool (LangChain, Langfuse, etc.) before the user has a working system it would improve
 - Do not copy the course code verbatim — understand it, then write it fresh with explanations
+- Do not write Docker or service configuration from training data memory — always fetch current docs first
+- Do not keep patching forward when something breaks — step back, read the logs fully, understand the root cause before writing any fix
