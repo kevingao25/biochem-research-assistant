@@ -17,3 +17,6 @@ airflow/*.pid
 
 # OS
 .DS_Store
+
+# Session handoff
+PROGRESS.md
