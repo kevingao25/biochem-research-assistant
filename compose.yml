@@ -72,9 +72,12 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
       AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      PYTHONPATH: /opt/airflow
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
+      - ./src:/opt/airflow/src
     ports:
       - "8080:8080"
     depends_on:
@@ -110,6 +113,7 @@ services:
         condition: service_healthy
     volumes:
       - ./api:/app
+      - ./src:/app/src
     networks:
       - biochem-network
 

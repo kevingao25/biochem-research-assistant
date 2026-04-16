@@ -68,6 +68,7 @@ Key doc sources:
 
 - Never include `Co-Authored-By: Claude` or any AI attribution in commit messages
 - Keep commit messages concise and descriptive
+- Do not use conventional commit prefixes (`feat:`, `fix:`, `chore:`, etc.)
 
 ## Development Principles
 

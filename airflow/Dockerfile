@@ -10,5 +10,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 USER airflow
+COPY requirements.txt /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
+
 COPY --chmod=755 entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
