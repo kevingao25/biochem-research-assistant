@@ -20,3 +20,6 @@ airflow/*.pid
 
 # Session handoff
 PROGRESS.md
+
+# Claude
+CLAUDE.md
