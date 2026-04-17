@@ -45,8 +45,48 @@ class PaperRepository:
         )
         return list(self.session.scalars(stmt))
 
+    def update(self, paper: Paper) -> Paper:
+        # Persists changes made to an already-loaded Paper object
+        self.session.add(paper)
+        self.session.commit()
+        self.session.refresh(paper)
+        return paper
+
     def upsert(self, paper_create: PaperCreate) -> Paper:
         existing = self.get_by_arxiv_id(paper_create.arxiv_id)
         if existing:
             return existing
         return self.create(paper_create)
+
+    def get_processed(self, limit: int = 100, offset: int = 0) -> List[Paper]:
+        stmt = (
+            select(Paper)
+            .where(Paper.pdf_processed == True)
+            .order_by(Paper.pdf_processing_date.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(self.session.scalars(stmt))
+
+    def get_papers_with_text(self, limit: int = 100, offset: int = 0) -> List[Paper]:
+        stmt = (
+            select(Paper)
+            .where(Paper.raw_text.is_not(None))
+            .order_by(Paper.pdf_processing_date.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(self.session.scalars(stmt))
+
+    def get_processing_stats(self) -> dict:
+        # Quick overview of how far along PDF processing is
+        total = self.get_count()
+        processed_stmt = select(func.count(Paper.id)).where(Paper.pdf_processed == True)
+        processed = self.session.scalar(processed_stmt) or 0
+        text_stmt = select(func.count(Paper.id)).where(Paper.raw_text.is_not(None))
+        with_text = self.session.scalar(text_stmt) or 0
+        return {
+            "total_papers": total,
+            "processed_papers": processed,
+            "papers_with_text": with_text,
+        }
