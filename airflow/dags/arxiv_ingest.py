@@ -6,7 +6,8 @@ import pendulum
 from airflow.sdk import dag, task
 
 from src.db.session import get_session, make_engine, make_session_factory
-from src.models.paper import Paper
+from src.repositories.paper import PaperRepository
+from src.schemas.arxiv.paper import PaperCreate
 from src.services.arxiv_client import fetch_papers
 
 logger = logging.getLogger(__name__)
@@ -43,13 +44,9 @@ def arxiv_ingest():
         skipped = 0
 
         with get_session(session_factory) as session:
+            repo = PaperRepository(session)
             for p in papers:
-                exists = session.query(Paper).filter_by(arxiv_id=p.arxiv_id).first()
-                if exists:
-                    skipped += 1
-                    continue
-
-                session.add(Paper(
+                paper_create = PaperCreate(
                     arxiv_id=p.arxiv_id,
                     title=p.title,
                     authors=p.authors,
@@ -57,10 +54,13 @@ def arxiv_ingest():
                     categories=p.categories,
                     published_date=p.published_date,
                     pdf_url=p.pdf_url,
-                ))
+                )
+                existing = repo.get_by_arxiv_id(p.arxiv_id)
+                if existing:
+                    skipped += 1
+                    continue
+                repo.create(paper_create)
                 inserted += 1
-
-            session.commit()
 
         logger.info(f"Done — inserted: {inserted}, skipped (already exists): {skipped}")
 
