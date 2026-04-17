@@ -9,6 +9,7 @@ from src.db.session import get_session, make_engine, make_session_factory
 from src.repositories.paper import PaperRepository
 from src.schemas.arxiv.paper import PaperCreate
 from src.services.arxiv_client import fetch_papers
+from src.services.qdrant_client import QdrantService
 
 logger = logging.getLogger(__name__)
 
@@ -25,12 +26,14 @@ logger = logging.getLogger(__name__)
 def arxiv_ingest():
 
     @task
-    def fetch_and_store(ds: str):
+    def fetch_and_store(ds: str | None = None):
         """
         Fetch yesterday's papers from arXiv and store them in PostgreSQL.
-        ds is the DAG run date string (YYYY-MM-DD), injected by Airflow.
+        ds is the DAG run date string (YYYY-MM-DD), injected by Airflow on
+        scheduled runs. Manual triggers don't have a logical_date, so ds
+        will be None — we fall back to today's date.
         """
-        run_date = date.fromisoformat(ds)
+        run_date = date.fromisoformat(ds) if ds else date.today()
         from_date = run_date - timedelta(days=1)
         to_date = run_date
 
@@ -39,6 +42,8 @@ def arxiv_ingest():
 
         engine = make_engine(os.environ["DATABASE_URL"])
         session_factory = make_session_factory(engine)
+        qdrant = QdrantService(url=os.environ["QDRANT_URL"])
+        qdrant.setup_collection()
 
         inserted = 0
         skipped = 0
@@ -59,7 +64,8 @@ def arxiv_ingest():
                 if existing:
                     skipped += 1
                     continue
-                repo.create(paper_create)
+                db_paper = repo.create(paper_create)
+                qdrant.index_paper(db_paper)
                 inserted += 1
 
         logger.info(f"Done — inserted: {inserted}, skipped (already exists): {skipped}")

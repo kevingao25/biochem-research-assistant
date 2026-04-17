@@ -27,7 +27,7 @@ services:
   # meaning) so we can search by semantic similarity, not just keywords.
   # Port 6333: HTTP API  |  Port 6334: gRPC (faster for bulk operations)
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.17.1
     volumes:
       - qdrant_data:/qdrant/storage
     ports:
@@ -74,6 +74,7 @@ services:
       AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
       PYTHONPATH: /opt/airflow
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      QDRANT_URL: http://qdrant:6333
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
@@ -82,6 +83,8 @@ services:
       - "8080:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      qdrant:
         condition: service_healthy
     networks:
       - biochem-network
