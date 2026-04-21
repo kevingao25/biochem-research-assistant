@@ -1,4 +1,5 @@
 import logging
+import uuid
 from typing import List
 
 from fastembed import SparseTextEmbedding
@@ -6,10 +7,11 @@ from qdrant_client import QdrantClient
 from qdrant_client import models
 
 from src.models.paper import Paper
+from src.schemas.indexing.models import TextChunk
 
 logger = logging.getLogger(__name__)
 
-COLLECTION = "papers"
+COLLECTION = "papers_chunks"
 BM25_MODEL = "Qdrant/bm25"
 
 
@@ -27,6 +29,7 @@ class QdrantService:
         return self._encoder
 
     def setup_collection(self) -> None:
+        """Create the papers_chunks collection if it doesn't exist."""
         existing = {c.name for c in self.client.get_collections().collections}
         if COLLECTION in existing:
             logger.info(f"Qdrant collection '{COLLECTION}' already exists")
@@ -41,21 +44,25 @@ class QdrantService:
         )
         logger.info(f"Qdrant collection '{COLLECTION}' created with BM25 sparse vectors")
 
-    def index_paper(self, paper: Paper) -> None:
-        embedding = next(self.encoder.embed([paper.abstract]))
+    def index_chunk(self, chunk: TextChunk) -> None:
+        """Index a single text chunk as a BM25 sparse vector point."""
+        embedding = next(self.encoder.embed([chunk.text]))
+
+        # Deterministic UUID from arxiv_id + chunk_index so re-indexing is idempotent.
+        point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{chunk.arxiv_id}_{chunk.metadata.chunk_index}"))
+
         self.client.upsert(
             collection_name=COLLECTION,
             points=[
                 models.PointStruct(
-                    id=str(paper.id),
+                    id=point_id,
                     payload={
-                        "arxiv_id": paper.arxiv_id,
-                        "title": paper.title,
-                        "authors": paper.authors,
-                        "abstract": paper.abstract,
-                        "categories": paper.categories,
-                        "published_date": paper.published_date.isoformat(),
-                        "pdf_url": paper.pdf_url,
+                        "arxiv_id": chunk.arxiv_id,
+                        "paper_id": chunk.paper_id,
+                        "chunk_index": chunk.metadata.chunk_index,
+                        "chunk_text": chunk.text,
+                        "section_title": chunk.metadata.section_title,
+                        "word_count": chunk.metadata.word_count,
                     },
                     vector={
                         "bm25": models.SparseVector(
@@ -67,7 +74,25 @@ class QdrantService:
             ],
         )
 
+    def index_chunks(self, chunks: List[TextChunk]) -> None:
+        """Batch-index a list of chunks for one paper."""
+        for chunk in chunks:
+            self.index_chunk(chunk)
+        logger.info(f"Indexed {len(chunks)} chunks for {chunks[0].arxiv_id if chunks else '?'}")
+
+    def index_paper(self, paper: Paper) -> None:
+        """Legacy method kept for the backfill script — indexes the abstract as a single chunk."""
+        from src.schemas.indexing.models import ChunkMetadata, TextChunk as TC
+        chunk = TC(
+            text=f"{paper.title}\n\nAbstract: {paper.abstract}",
+            metadata=ChunkMetadata(chunk_index=0, word_count=len(paper.abstract.split()), section_title="Abstract"),
+            arxiv_id=paper.arxiv_id,
+            paper_id=str(paper.id),
+        )
+        self.index_chunk(chunk)
+
     def search(self, query: str, limit: int = 10) -> List[dict]:
+        """BM25 keyword search over chunk text."""
         query_embedding = next(self.encoder.query_embed(query))
         results = self.client.query_points(
             collection_name=COLLECTION,
@@ -81,12 +106,10 @@ class QdrantService:
         return [
             {
                 "arxiv_id": point.payload["arxiv_id"],
-                "title": point.payload["title"],
-                "authors": point.payload["authors"],
-                "abstract": point.payload["abstract"],
-                "categories": point.payload["categories"],
-                "published_date": point.payload["published_date"],
-                "pdf_url": point.payload["pdf_url"],
+                "paper_id": point.payload["paper_id"],
+                "chunk_index": point.payload["chunk_index"],
+                "chunk_text": point.payload["chunk_text"],
+                "section_title": point.payload.get("section_title"),
                 "score": point.score,
             }
             for point in results.points

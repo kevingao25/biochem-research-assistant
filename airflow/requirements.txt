@@ -3,3 +3,4 @@ sqlalchemy==2.0.40
 psycopg2-binary==2.9.10
 qdrant-client==1.17.1
 fastembed==0.7.4
+docling>=2.0.0,<3.0.0

@@ -19,16 +19,15 @@ class PaperResponse(BaseModel):
         from_attributes = True  # lets Pydantic read fields from ORM objects, not just dicts
 
 
-# A single result from a Qdrant search — includes a relevance score.
-# published_date is a string here because Qdrant stores it as an ISO string in the payload.
+# A single chunk result from a Qdrant BM25 search — includes a relevance score.
+# chunk_text is the specific passage that matched the query.
+# section_title indicates which part of the paper the chunk came from (None for raw-text fallback chunks).
 class SearchHit(BaseModel):
     arxiv_id: str
-    title: str
-    authors: List[str]
-    abstract: str
-    categories: List[str]
-    published_date: str
-    pdf_url: str
+    paper_id: str
+    chunk_index: int
+    chunk_text: str
+    section_title: str | None
     score: float  # BM25 relevance score — higher means more relevant
 
 
