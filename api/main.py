@@ -2,7 +2,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from src.db.session import create_tables, make_engine, make_session_factory
 from src.routers.papers import router as papers_router
@@ -45,5 +45,23 @@ app.include_router(papers_router, prefix="/api/v1")
 
 
 @app.get("/health")
-def health():
-    return {"status": "ok"}
+def health(request: Request):
+    """Check liveness of each downstream service the API depends on."""
+    from sqlalchemy import text
+
+    db_ok = False
+    try:
+        with app.state.session_factory() as session:
+            session.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        pass
+
+    qdrant_ok = app.state.qdrant.health_check()
+
+    services = {
+        "postgres": "ok" if db_ok else "unreachable",
+        "qdrant":   "ok" if qdrant_ok else "unreachable",
+    }
+    overall = "ok" if all(v == "ok" for v in services.values()) else "degraded"
+    return {"status": overall, "services": services}
