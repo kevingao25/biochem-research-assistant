@@ -80,17 +80,6 @@ class QdrantService:
             self.index_chunk(chunk)
         logger.info(f"Indexed {len(chunks)} chunks for {chunks[0].arxiv_id if chunks else '?'}")
 
-    def index_paper(self, paper: Paper) -> None:
-        """Legacy method kept for the backfill script — indexes the abstract as a single chunk."""
-        from src.schemas.indexing.models import ChunkMetadata, TextChunk as TC
-        chunk = TC(
-            text=f"{paper.title}\n\nAbstract: {paper.abstract}",
-            metadata=ChunkMetadata(chunk_index=0, word_count=len(paper.abstract.split()), section_title="Abstract"),
-            arxiv_id=paper.arxiv_id,
-            paper_id=str(paper.id),
-        )
-        self.index_chunk(chunk)
-
     def search(self, query: str, limit: int = 10) -> List[dict]:
         """BM25 keyword search over chunk text."""
         query_embedding = next(self.encoder.query_embed(query))

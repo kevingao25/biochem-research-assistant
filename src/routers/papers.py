@@ -20,7 +20,7 @@ def search_papers(
     limit: int = Query(10, ge=1, le=50),
     qdrant: QdrantDep = None,
 ):
-    """BM25 keyword search over paper abstracts via Qdrant sparse vectors."""
+    """BM25 keyword search over paper chunks via Qdrant sparse vectors."""
     hits = qdrant.search(q, limit=limit)
     return SearchResponse(
         query=q,
