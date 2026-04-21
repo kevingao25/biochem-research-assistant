@@ -75,6 +75,7 @@ services:
       PYTHONPATH: /opt/airflow
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       QDRANT_URL: http://qdrant:6333
+      JINA_API_KEY: ${JINA_API_KEY}
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
@@ -102,6 +103,7 @@ services:
       QDRANT_URL: http://qdrant:6333
       OLLAMA_URL: http://ollama:11434
       API_SECRET_KEY: ${API_SECRET_KEY}
+      JINA_API_KEY: ${JINA_API_KEY}
     ports:
       - "8000:8000"
     healthcheck:

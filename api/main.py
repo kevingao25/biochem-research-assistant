@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 
 from src.db.session import create_tables, make_engine, make_session_factory
 from src.routers.papers import router as papers_router
+from src.services.jina_client import JinaClient
 from src.services.qdrant_client import QdrantService
 
 logging.basicConfig(level=logging.INFO)
@@ -27,6 +28,10 @@ async def lifespan(app: FastAPI):
     qdrant.setup_collection()
     app.state.qdrant = qdrant
     logger.info("Qdrant ready")
+
+    # Jina AI — dense embedding client for hybrid search
+    app.state.jina = JinaClient(api_key=os.environ["JINA_API_KEY"])
+    logger.info("Jina client ready")
 
     yield
 

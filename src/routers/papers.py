@@ -1,8 +1,9 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
-from src.dependencies import QdrantDep, SessionDep
+from src.dependencies import JinaDep, QdrantDep, SessionDep
 from src.repositories.paper import PaperRepository
 from src.schemas.api.papers import PaperResponse, SearchHit, SearchResponse
 
@@ -19,13 +20,27 @@ def search_papers(
     q: str = Query(..., description="Search query"),
     limit: int = Query(10, ge=1, le=50),
     qdrant: QdrantDep = None,
+    jina: JinaDep = None,
 ):
-    """BM25 keyword search over paper chunks via Qdrant sparse vectors."""
-    hits = qdrant.search(q, limit=limit)
+    """Hybrid BM25 + dense search using Qdrant native RRF fusion.
+
+    Falls back to BM25-only if Jina is unreachable so the endpoint stays
+    available even when the embedding API is down.
+    """
+    try:
+        dense_embedding = asyncio.run(jina.embed_query(q))
+        hits = qdrant.search_hybrid(q, dense_embedding=dense_embedding, limit=limit)
+        search_mode = "hybrid"
+    except Exception as e:
+        logger.warning(f"Jina embedding failed, falling back to BM25: {e}")
+        hits = qdrant.search(q, limit=limit)
+        search_mode = "bm25"
+
     return SearchResponse(
         query=q,
         total=len(hits),
         hits=[SearchHit(**hit) for hit in hits],
+        search_mode=search_mode,
     )
 
 

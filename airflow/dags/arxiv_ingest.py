@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from datetime import date, timedelta
@@ -11,6 +12,7 @@ from src.repositories.paper import PaperRepository
 from src.schemas.arxiv.paper import PaperCreate
 from src.services.arxiv_client import fetch_papers
 from src.services.chunker import TextChunker
+from src.services.jina_client import JinaClient
 from src.services.pdf_processor import PdfProcessor
 from src.services.qdrant_client import QdrantService
 
@@ -86,6 +88,7 @@ def arxiv_ingest():
 
         processor = PdfProcessor()
         chunker = TextChunker()
+        jina = JinaClient(api_key=os.environ["JINA_API_KEY"])
 
         processed = 0
         failed = 0
@@ -113,7 +116,7 @@ def arxiv_ingest():
                 paper.pdf_processing_date = datetime.now(timezone.utc)
                 repo.update(paper)
 
-                # Chunk and index into Qdrant
+                # Chunk and index into Qdrant with BM25 + dense embeddings
                 chunks = chunker.chunk_paper(
                     title=paper.title,
                     abstract=paper.abstract,
@@ -124,7 +127,9 @@ def arxiv_ingest():
                 )
 
                 if chunks:
-                    qdrant.index_chunks(chunks)
+                    chunk_texts = [c.text for c in chunks]
+                    dense_embeddings = asyncio.run(jina.embed_passages(chunk_texts))
+                    qdrant.index_chunks(chunks, dense_embeddings=dense_embeddings)
 
                 processed += 1
                 logger.info(f"Processed {paper.arxiv_id}: {len(chunks)} chunks indexed")

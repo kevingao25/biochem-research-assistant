@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from src.schemas.indexing.models import ChunkMetadata, TextChunk
 from src.schemas.pdf_parser.models import PaperSection
@@ -10,6 +10,15 @@ CHUNK_SIZE = 600      # target words per chunk (sliding window)
 OVERLAP = 100         # words shared between adjacent chunks
 MIN_CHUNK = 100       # discard chunks smaller than this
 MAX_SECTION = 900     # sections larger than this get split; smaller ones stay whole
+
+# Section titles that contain no scientific content worth indexing.
+_NOISE_SECTIONS: Set[str] = {
+    "references", "bibliography", "acknowledgements", "acknowledgments",
+    "funding", "conflicts of interest", "conflict of interest",
+    "author contributions", "data availability", "ethics statement",
+    "supplementary materials", "supplementary material", "appendix",
+    "declaration of competing interest", "declarations",
+}
 
 
 class TextChunker:
@@ -66,7 +75,14 @@ class TextChunker:
         chunks: List[TextChunk] = []
         pending: List[PaperSection] = []   # small sections waiting to be combined
 
+        abstract_words = set(header.lower().split())
+
         for i, section in enumerate(sections):
+            if self._is_noise_section(section.title):
+                continue
+            if self._is_duplicate_abstract(section.content, abstract_words):
+                continue
+
             words = section.content.split()
             is_last = i == len(sections) - 1
 
@@ -89,6 +105,22 @@ class TextChunker:
                     chunks.append(sub)
 
         return chunks
+
+    def _is_noise_section(self, title: str) -> bool:
+        """Return True for sections that add no retrievable scientific content."""
+        return title.strip().lower() in _NOISE_SECTIONS
+
+    def _is_duplicate_abstract(self, content: str, abstract_words: Set[str]) -> bool:
+        """Return True if this section is mostly a repeat of the abstract.
+
+        Some PDFs embed the abstract again as the first body section.
+        We skip it when >80% of its words already appear in the header.
+        """
+        content_words = set(content.lower().split())
+        if not content_words:
+            return False
+        overlap = len(content_words & abstract_words) / len(content_words)
+        return overlap > 0.8
 
     def _flush_pending(
         self,

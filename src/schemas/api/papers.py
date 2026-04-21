@@ -36,3 +36,4 @@ class SearchResponse(BaseModel):
     query: str
     total: int
     hits: List[SearchHit]
+    search_mode: str  # "hybrid" or "bm25" (bm25 means Jina was unreachable)
