@@ -36,6 +36,9 @@ health:
 	@curl -sf http://localhost:11434/api/version > /dev/null \
 		&& printf "%-12s \033[32m✓ healthy\033[0m\n" "Ollama" \
 		|| printf "%-12s \033[31m✗ not responding\033[0m\n" "Ollama"
+	@docker exec biochem-research-assistant-redis-1 redis-cli ping > /dev/null 2>&1 \
+		&& printf "%-12s \033[32m✓ healthy\033[0m\n" "Redis" \
+		|| printf "%-12s \033[31m✗ not responding\033[0m\n" "Redis"
 	@curl -sf http://localhost:5432 > /dev/null 2>&1; \
 		docker exec biochem-research-assistant-postgres-1 pg_isready -q 2>/dev/null \
 		&& printf "%-12s \033[32m✓ healthy\033[0m\n" "Postgres" \

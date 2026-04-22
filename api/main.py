@@ -2,11 +2,16 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
+import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
 
 from src.db.session import create_tables, make_engine, make_session_factory
+from src.routers.ask import router as ask_router
 from src.routers.papers import router as papers_router
+from src.services.cache_client import CacheClient
 from src.services.jina_client import JinaClient
+from src.services.langfuse_client import LangfuseClient
+from src.services.ollama_client import OllamaClient
 from src.services.qdrant_client import QdrantService
 
 logging.basicConfig(level=logging.INFO)
@@ -33,8 +38,24 @@ async def lifespan(app: FastAPI):
     app.state.jina = JinaClient(api_key=os.environ["JINA_API_KEY"])
     logger.info("Jina client ready")
 
+    # Ollama — local LLM for question answering
+    app.state.ollama = OllamaClient(url=os.environ["OLLAMA_URL"])
+    logger.info("Ollama client ready")
+
+    # Redis — exact-match answer cache
+    redis_client = aioredis.Redis.from_url(os.environ["REDIS_URL"])
+    app.state.cache = CacheClient(redis_client)
+    logger.info("Cache ready")
+
+    # Langfuse — LLM observability (no-op if keys are not set)
+    app.state.langfuse = LangfuseClient()
+    logger.info("Langfuse ready")
+
     yield
 
+    # Teardown — flush traces and close connections cleanly
+    app.state.langfuse.shutdown()
+    await redis_client.aclose()
     engine.dispose()
     logger.info("Shutdown complete")
 
@@ -47,11 +68,13 @@ app = FastAPI(
 )
 
 app.include_router(papers_router, prefix="/api/v1")
+app.include_router(ask_router, prefix="/api/v1")
 
 
 @app.get("/health")
-def health(request: Request):
+async def health(request: Request):
     """Check liveness of each downstream service the API depends on."""
+    import httpx
     from sqlalchemy import text
 
     db_ok = False
@@ -64,9 +87,26 @@ def health(request: Request):
 
     qdrant_ok = app.state.qdrant.health_check()
 
+    redis_ok = False
+    try:
+        await app.state.cache.redis.ping()
+        redis_ok = True
+    except Exception:
+        pass
+
+    ollama_ok = False
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{os.environ['OLLAMA_URL']}/api/version")
+            ollama_ok = resp.status_code == 200
+    except Exception:
+        pass
+
     services = {
         "postgres": "ok" if db_ok else "unreachable",
         "qdrant":   "ok" if qdrant_ok else "unreachable",
+        "redis":    "ok" if redis_ok else "unreachable",
+        "ollama":   "ok" if ollama_ok else "unreachable",
     }
     overall = "ok" if all(v == "ok" for v in services.values()) else "degraded"
     return {"status": overall, "services": services}

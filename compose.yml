@@ -58,6 +58,26 @@ services:
     networks:
       - biochem-network
 
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  # In-memory cache. Stores /ask responses so identical questions are served
+  # instantly without re-running the full search + LLM pipeline.
+  # allkeys-lru: when memory is full, evict the least-recently-used key.
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - biochem-network
+
   # ── Airflow ──────────────────────────────────────────────────────────────────
   # Workflow orchestrator. Runs scheduled pipelines (DAGs) that fetch arXiv
   # papers, download PDFs, extract text, and trigger indexing.
@@ -104,6 +124,10 @@ services:
       OLLAMA_URL: http://ollama:11434
       API_SECRET_KEY: ${API_SECRET_KEY}
       JINA_API_KEY: ${JINA_API_KEY}
+      REDIS_URL: ${REDIS_URL}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL}
     ports:
       - "8000:8000"
     healthcheck:
@@ -115,6 +139,8 @@ services:
       postgres:
         condition: service_healthy
       qdrant:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
       - ./api:/app
@@ -130,6 +156,7 @@ volumes:
   qdrant_data:
   ollama_data:
   airflow_logs:
+  redis_data:
 
 # ── Network ────────────────────────────────────────────────────────────────────
 # All services share this network so they can reach each other by service name.
