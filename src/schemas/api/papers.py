@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 # Returned by GET /papers and GET /papers/{arxiv_id}.
@@ -15,8 +15,7 @@ class PaperResponse(BaseModel):
     published_date: datetime
     pdf_url: str
 
-    class Config:
-        from_attributes = True  # lets Pydantic read fields from ORM objects, not just dicts
+    model_config = ConfigDict(from_attributes=True)  # lets Pydantic read fields from ORM objects, not just dicts
 
 
 # A single chunk result from a Qdrant BM25 search — includes a relevance score.
