@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Any, ContextManager, Dict, List, Optional
+from contextlib import AbstractContextManager
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -16,7 +17,7 @@ class BaseDatabase(ABC):
         """Close all connections cleanly."""
 
     @abstractmethod
-    def get_session(self) -> ContextManager[Session]:
+    def get_session(self) -> AbstractContextManager[Session]:
         """Yield a SQLAlchemy session, rolling back on exception."""
 
 
@@ -27,15 +28,15 @@ class BaseRepository(ABC):
         self.session = session
 
     @abstractmethod
-    def create(self, data: Dict[str, Any]) -> Any:
+    def create(self, data: dict[str, Any]) -> Any:
         """Insert a new record."""
 
     @abstractmethod
-    def get_by_id(self, record_id: Any) -> Optional[Any]:
+    def get_by_id(self, record_id: Any) -> Any | None:
         """Fetch a record by primary key."""
 
     @abstractmethod
-    def update(self, record_id: Any, data: Dict[str, Any]) -> Optional[Any]:
+    def update(self, record_id: Any, data: dict[str, Any]) -> Any | None:
         """Update a record by primary key."""
 
     @abstractmethod
@@ -43,5 +44,5 @@ class BaseRepository(ABC):
         """Delete a record by primary key."""
 
     @abstractmethod
-    def list(self, limit: int = 100, offset: int = 0) -> List[Any]:
+    def list(self, limit: int = 100, offset: int = 0) -> list[Any]:
         """Return paginated records."""

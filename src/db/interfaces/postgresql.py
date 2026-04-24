@@ -1,6 +1,6 @@
 import logging
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator, Optional
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 class PostgreSQLDatabase(BaseDatabase):
     def __init__(self, config: PostgreSQLSettings):
         self.config = config
-        self.engine: Optional[Engine] = None
-        self.session_factory: Optional[sessionmaker] = None
+        self.engine: Engine | None = None
+        self.session_factory: sessionmaker | None = None
 
     def startup(self) -> None:
         host_hint = self.config.database_url.split("@")[-1] if "@" in self.config.database_url else "localhost"

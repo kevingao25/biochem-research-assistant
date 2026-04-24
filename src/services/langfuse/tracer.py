@@ -1,11 +1,10 @@
 import logging
 import time
 from contextlib import contextmanager
-from typing import Dict, List
-
-logger = logging.getLogger(__name__)
 
 from src.services.langfuse.client import LangfuseTracer
+
+logger = logging.getLogger(__name__)
 
 
 class RAGTracer:
@@ -43,7 +42,7 @@ class RAGTracer:
             if span:
                 span.end()
 
-    def end_search(self, span, chunks: List[Dict], arxiv_ids: List[str], total_hits: int):
+    def end_search(self, span, chunks: list[dict], arxiv_ids: list[str], total_hits: int):
         if not span:
             return
         self.tracer.update_span(
@@ -56,7 +55,7 @@ class RAGTracer:
         )
 
     @contextmanager
-    def trace_prompt_construction(self, trace, chunks: List[Dict]):
+    def trace_prompt_construction(self, trace, chunks: list[dict]):
         span = self.tracer.create_span(trace, "prompt_construction", {"chunk_count": len(chunks)})
         try:
             yield span

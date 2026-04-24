@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import arxiv
 
@@ -58,7 +58,7 @@ def fetch_papers(from_date: date, to_date: date, max_results: int = 100) -> list
                 authors=[a.name for a in result.authors],
                 abstract=result.summary.replace("\n", " ").strip(),
                 categories=[c for c in result.categories],
-                published_date=result.published.replace(tzinfo=timezone.utc)
+                published_date=result.published.replace(tzinfo=UTC)
                 if result.published.tzinfo is None
                 else result.published,
                 pdf_url=result.pdf_url or "",

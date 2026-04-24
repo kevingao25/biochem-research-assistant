@@ -1,7 +1,5 @@
-import pytest
 
 from src.routers.ask import _build_user_message, _extract_sources
-
 
 # ── Prompt construction ────────────────────────────────────────────────────────
 

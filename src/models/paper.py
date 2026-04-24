@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -29,7 +29,7 @@ class Paper(Base):
     pdf_processed = Column(Boolean, nullable=False, default=False)
     pdf_processing_date = Column(DateTime, nullable=True)
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )

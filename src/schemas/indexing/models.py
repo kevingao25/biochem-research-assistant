@@ -1,4 +1,3 @@
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -6,7 +5,7 @@ from pydantic import BaseModel
 class ChunkMetadata(BaseModel):
     chunk_index: int  # position of this chunk within the paper (0-based)
     word_count: int
-    section_title: Optional[str] = None  # None when falling back to raw-text chunking
+    section_title: str | None = None  # None when falling back to raw-text chunking
 
 
 class TextChunk(BaseModel):

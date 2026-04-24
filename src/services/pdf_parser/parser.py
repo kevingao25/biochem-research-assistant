@@ -1,7 +1,6 @@
 import logging
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 import requests
 from docling.datamodel.base_models import InputFormat
@@ -45,7 +44,7 @@ class PDFProcessor:
                     raise ValueError(f"PDF exceeds {MAX_FILE_SIZE_MB}MB size limit")
                 f.write(chunk)
 
-    def parse_pdf(self, pdf_path: Path) -> Optional[PdfContent]:
+    def parse_pdf(self, pdf_path: Path) -> PdfContent | None:
         """Run docling on a local PDF file and return structured content."""
         result = self._converter.convert(str(pdf_path))
         doc = result.document
@@ -84,7 +83,7 @@ class PDFProcessor:
             parser_metadata={"source": "docling", "num_sections": len(sections)},
         )
 
-    def process(self, arxiv_id: str, pdf_url: str) -> Optional[PdfContent]:
+    def process(self, arxiv_id: str, pdf_url: str) -> PdfContent | None:
         """Download and parse a single paper's PDF. Returns None if processing fails."""
         with tempfile.TemporaryDirectory() as tmpdir:
             pdf_path = Path(tmpdir) / f"{arxiv_id}.pdf"

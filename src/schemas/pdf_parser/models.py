@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -18,6 +18,6 @@ class PdfContent(BaseModel):
     parser_metadata: freeform docling output (e.g. section count); stored as-is in Postgres JSONB.
     """
 
-    sections: List[PaperSection]
+    sections: list[PaperSection]
     raw_text: str
-    parser_metadata: Dict[str, Any]
+    parser_metadata: dict[str, Any]

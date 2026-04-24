@@ -2,7 +2,6 @@ import hashlib
 import json
 import logging
 from datetime import timedelta
-from typing import Optional
 
 import redis
 
@@ -28,7 +27,7 @@ class CacheClient:
         key_hash = hashlib.sha256(json.dumps(key_data, sort_keys=True).encode()).hexdigest()[:16]
         return f"ask:{key_hash}"
 
-    async def find_cached_response(self, request: AskRequest) -> Optional[AskResponse]:
+    async def find_cached_response(self, request: AskRequest) -> AskResponse | None:
         try:
             cached = self.redis.get(self._cache_key(request))
             if cached:

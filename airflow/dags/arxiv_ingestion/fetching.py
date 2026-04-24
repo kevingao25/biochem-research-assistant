@@ -1,8 +1,7 @@
 import logging
-import os
 from datetime import date, timedelta
 
-from src.db.session import get_session, make_engine, make_session_factory
+from src.db.factory import make_database
 from src.repositories.paper import PaperRepository
 from src.schemas.arxiv.paper import PaperCreate
 from src.services.arxiv.client import fetch_papers as _fetch_from_arxiv
@@ -23,13 +22,12 @@ def fetch_papers(ds: str | None = None) -> dict:
     logger.info(f"Fetching papers from {from_date} to {to_date}")
     papers = _fetch_from_arxiv(from_date=from_date, to_date=to_date)
 
-    engine = make_engine(os.environ["DATABASE_URL"])
-    session_factory = make_session_factory(engine)
+    db = make_database()
 
     inserted = 0
     skipped = 0
 
-    with get_session(session_factory) as session:
+    with db.get_session() as session:
         repo = PaperRepository(session)
         for p in papers:
             paper_create = PaperCreate(

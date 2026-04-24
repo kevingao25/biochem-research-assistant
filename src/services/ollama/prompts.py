@@ -1,7 +1,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import ValidationError
 
@@ -19,7 +19,7 @@ class RAGPromptBuilder:
             return "You are a research assistant. Answer based ONLY on the provided paper excerpts."
         return prompt_file.read_text().strip()
 
-    def create_rag_prompt(self, query: str, chunks: List[Dict[str, Any]]) -> str:
+    def create_rag_prompt(self, query: str, chunks: list[dict[str, Any]]) -> str:
         prompt = f"{self.system_prompt}\n\n"
         prompt += "### Context from Papers:\n\n"
         for i, chunk in enumerate(chunks, 1):
@@ -29,7 +29,7 @@ class RAGPromptBuilder:
         prompt += "### Answer:\nProvide a natural response and cite sources using [arXiv:id] format.\n\n"
         return prompt
 
-    def create_structured_prompt(self, query: str, chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def create_structured_prompt(self, query: str, chunks: list[dict[str, Any]]) -> dict[str, Any]:
         """Return prompt + Ollama format schema for structured JSON output."""
         return {
             "prompt": self.create_rag_prompt(query, chunks),
@@ -39,7 +39,7 @@ class RAGPromptBuilder:
 
 class ResponseParser:
     @staticmethod
-    def parse_structured_response(response: str) -> Dict[str, Any]:
+    def parse_structured_response(response: str) -> dict[str, Any]:
         try:
             validated = RAGResponse(**json.loads(response))
             return validated.model_dump()
@@ -47,7 +47,7 @@ class ResponseParser:
             return ResponseParser._extract_json_fallback(response)
 
     @staticmethod
-    def _extract_json_fallback(response: str) -> Dict[str, Any]:
+    def _extract_json_fallback(response: str) -> dict[str, Any]:
         match = re.search(r"\{.*\}", response, re.DOTALL)
         if match:
             try:

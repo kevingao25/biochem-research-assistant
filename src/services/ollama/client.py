@@ -1,12 +1,12 @@
 import json
 import logging
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
 from src.config import Settings
 from src.exceptions import OllamaConnectionError, OllamaException, OllamaTimeoutError
-from src.schemas.ollama import RAGResponse
 from src.services.ollama.prompts import RAGPromptBuilder, ResponseParser
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class OllamaClient:
         self.prompt_builder = RAGPromptBuilder()
         self.response_parser = ResponseParser()
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
                 response = await client.get(f"{self.base_url}/api/version")
@@ -32,7 +32,7 @@ class OllamaClient:
         except httpx.TimeoutException as e:
             raise OllamaTimeoutError(f"Ollama timeout: {e}")
 
-    async def generate(self, model: str, prompt: str, **kwargs) -> Optional[Dict[str, Any]]:
+    async def generate(self, model: str, prompt: str, **kwargs) -> dict[str, Any] | None:
         """Low-level generation via /api/generate."""
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -49,7 +49,7 @@ class OllamaClient:
         except Exception as e:
             raise OllamaException(f"Ollama generation failed: {e}")
 
-    async def generate_stream(self, model: str, prompt: str, **kwargs) -> AsyncIterator[Dict[str, Any]]:
+    async def generate_stream(self, model: str, prompt: str, **kwargs) -> AsyncIterator[dict[str, Any]]:
         """Low-level streaming via /api/generate."""
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -74,10 +74,10 @@ class OllamaClient:
     async def generate_rag_answer(
         self,
         query: str,
-        chunks: List[Dict[str, Any]],
+        chunks: list[dict[str, Any]],
         model: str = "llama3.2:1b",
         use_structured_output: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build prompt from chunks and generate a grounded answer."""
         try:
             if use_structured_output:
@@ -123,9 +123,9 @@ class OllamaClient:
     async def generate_rag_answer_stream(
         self,
         query: str,
-        chunks: List[Dict[str, Any]],
+        chunks: list[dict[str, Any]],
         model: str = "llama3.2:1b",
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Stream a RAG answer token-by-token."""
         prompt = self.prompt_builder.create_rag_prompt(query, chunks)
         async for chunk in self.generate_stream(model=model, prompt=prompt, temperature=0.7):

@@ -1,9 +1,9 @@
 import pendulum
-from airflow.sdk import dag, task
-
 from arxiv_ingestion.fetching import fetch_papers
 from arxiv_ingestion.indexing import process_and_index_papers
 from arxiv_ingestion.reporting import log_ingestion_stats
+
+from airflow.sdk import dag, task
 
 
 @dag(

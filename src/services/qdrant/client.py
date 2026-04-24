@@ -1,10 +1,8 @@
 import logging
 import uuid
-from typing import List, Optional
 
 from fastembed import SparseTextEmbedding
-from qdrant_client import QdrantClient
-from qdrant_client import models
+from qdrant_client import QdrantClient, models
 
 from src.schemas.indexing.models import TextChunk
 
@@ -56,7 +54,7 @@ class QdrantService:
         )
         logger.info(f"Qdrant collection '{COLLECTION}' created with BM25 + dense vectors")
 
-    def index_chunk(self, chunk: TextChunk, dense_embedding: Optional[List[float]] = None) -> None:
+    def index_chunk(self, chunk: TextChunk, dense_embedding: list[float] | None = None) -> None:
         """Index a single text chunk with BM25 sparse vector and optional dense embedding."""
         sparse_embedding = next(self.encoder.embed([chunk.text]))
 
@@ -90,14 +88,14 @@ class QdrantService:
             ],
         )
 
-    def index_chunks(self, chunks: List[TextChunk], dense_embeddings: Optional[List[List[float]]] = None) -> None:
+    def index_chunks(self, chunks: list[TextChunk], dense_embeddings: list[list[float]] | None = None) -> None:
         """Batch-index a list of chunks for one paper."""
         for i, chunk in enumerate(chunks):
             embedding = dense_embeddings[i] if dense_embeddings else None
             self.index_chunk(chunk, dense_embedding=embedding)
         logger.info(f"Indexed {len(chunks)} chunks for {chunks[0].arxiv_id if chunks else '?'}")
 
-    def search(self, query: str, limit: int = 10) -> List[dict]:
+    def search(self, query: str, limit: int = 10) -> list[dict]:
         """BM25 keyword search over chunk text."""
         query_embedding = next(self.encoder.query_embed(query))
         results = self.client.query_points(
@@ -111,7 +109,7 @@ class QdrantService:
         )
         return self._format(results.points)
 
-    def search_hybrid(self, query: str, dense_embedding: List[float], limit: int = 10) -> List[dict]:
+    def search_hybrid(self, query: str, dense_embedding: list[float], limit: int = 10) -> list[dict]:
         """Hybrid BM25 + dense search using Qdrant's native RRF fusion.
 
         Qdrant fetches the top 20 from each index independently (prefetch),
@@ -141,7 +139,7 @@ class QdrantService:
         )
         return self._format(results.points)
 
-    def _format(self, points) -> List[dict]:
+    def _format(self, points) -> list[dict]:
         return [
             {
                 "arxiv_id": point.payload["arxiv_id"],

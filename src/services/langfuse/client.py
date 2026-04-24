@@ -1,6 +1,6 @@
 import logging
 from contextlib import contextmanager
-from typing import Any, Dict, Optional
+from typing import Any
 
 from langfuse import Langfuse
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class LangfuseTracer:
     def __init__(self, settings: Settings):
         self.settings = settings.langfuse
-        self.client: Optional[Langfuse] = None
+        self.client: Langfuse | None = None
 
         if self.settings.enabled and self.settings.public_key and self.settings.secret_key:
             try:
@@ -34,9 +34,9 @@ class LangfuseTracer:
     def trace_rag_request(
         self,
         query: str,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ):
         if not self.client:
             yield None
@@ -54,7 +54,7 @@ class LangfuseTracer:
             logger.error(f"Error creating Langfuse trace: {e}")
             yield None
 
-    def create_span(self, trace, name: str, input_data: Optional[Dict[str, Any]] = None):
+    def create_span(self, trace, name: str, input_data: dict[str, Any] | None = None):
         if not trace or not self.client:
             return None
         try:
@@ -63,7 +63,7 @@ class LangfuseTracer:
             logger.error(f"Error creating span {name}: {e}")
             return None
 
-    def update_span(self, span, output: Optional[Any] = None, metadata: Optional[Dict[str, Any]] = None):
+    def update_span(self, span, output: Any | None = None, metadata: dict[str, Any] | None = None):
         if not span:
             return
         try:

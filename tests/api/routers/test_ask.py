@@ -1,7 +1,5 @@
 import json
 
-import pytest
-
 from src.schemas.api.ask import AskResponse
 
 

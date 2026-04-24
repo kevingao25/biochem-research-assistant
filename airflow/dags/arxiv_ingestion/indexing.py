@@ -1,9 +1,9 @@
 import asyncio
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from src.db.session import get_session, make_engine, make_session_factory
+from src.db.factory import make_database
 from src.repositories.paper import PaperRepository
 from src.services.chunker import TextChunker
 from src.services.jina.client import JinaClient
@@ -22,8 +22,7 @@ def process_and_index_papers() -> dict:
     Processes up to PDF_BATCH_SIZE papers per run. Papers that fail PDF processing
     remain pdf_processed=False and are retried on the next daily run.
     """
-    engine = make_engine(os.environ["DATABASE_URL"])
-    session_factory = make_session_factory(engine)
+    db = make_database()
     qdrant = QdrantService(url=os.environ["QDRANT_URL"])
     qdrant.setup_collection()
 
@@ -34,7 +33,7 @@ def process_and_index_papers() -> dict:
     processed = 0
     failed = 0
 
-    with get_session(session_factory) as session:
+    with db.get_session() as session:
         repo = PaperRepository(session)
         papers = repo.get_unprocessed(limit=PDF_BATCH_SIZE)
 
@@ -54,7 +53,7 @@ def process_and_index_papers() -> dict:
             paper.parser_used = "docling"
             paper.parser_metadata = pdf_content.parser_metadata
             paper.pdf_processed = True
-            paper.pdf_processing_date = datetime.now(timezone.utc)
+            paper.pdf_processing_date = datetime.now(UTC)
             repo.update(paper)
 
             # Chunk and index into Qdrant with BM25 + dense embeddings

@@ -1,11 +1,10 @@
 import logging
 import sys
 from functools import lru_cache
-from typing import Any, Tuple
+from typing import Any
 
 sys.path.insert(0, "/opt/airflow")
 
-from src.config import get_settings
 from src.db.factory import make_database
 from src.services.arxiv.factory import make_arxiv_client
 from src.services.jina.factory import make_jina_client
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
-def get_cached_services() -> Tuple[Any, Any, Any, Any, Any]:
+def get_cached_services() -> tuple[Any, Any, Any, Any, Any]:
     """Cached service instances shared across DAG tasks in the same worker process."""
     logger.info("Initializing DAG services")
     arxiv_client = make_arxiv_client()

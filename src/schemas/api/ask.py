@@ -1,4 +1,3 @@
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,7 +9,7 @@ class AskRequest(BaseModel):
     use_hybrid: bool = Field(
         True, description="Use hybrid search (BM25 + dense); falls back to BM25 if Jina is unreachable"
     )
-    categories: Optional[List[str]] = Field(
+    categories: list[str] | None = Field(
         None, description="Filter by arXiv categories (e.g. ['q-bio.BM', 'q-bio.GN']); not yet implemented in search"
     )
 
@@ -18,6 +17,6 @@ class AskRequest(BaseModel):
 class AskResponse(BaseModel):
     query: str
     answer: str
-    sources: List[str]  # arXiv PDF URLs of papers the answer draws from
+    sources: list[str]  # arXiv PDF URLs of papers the answer draws from
     chunks_used: int  # how many chunks were passed to the LLM
     search_mode: str  # "hybrid" or "bm25"

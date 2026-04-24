@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Annotated, Callable, Generator
+from collections.abc import Callable, Generator
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session

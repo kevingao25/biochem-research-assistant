@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import AsyncIterator, Dict, List
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -17,7 +17,7 @@ ask_router = APIRouter(tags=["ask"])
 stream_router = APIRouter(tags=["stream"])
 
 
-def _build_user_message(query: str, chunks: List[Dict]) -> str:
+def _build_user_message(query: str, chunks: list[dict]) -> str:
     """Format retrieved chunks + question into the user message for the LLM."""
     parts = ["### Context from Papers:\n"]
     for i, chunk in enumerate(chunks, 1):
@@ -28,7 +28,7 @@ def _build_user_message(query: str, chunks: List[Dict]) -> str:
     return "\n".join(parts)
 
 
-def _extract_sources(chunks: List[Dict]) -> List[str]:
+def _extract_sources(chunks: list[dict]) -> list[str]:
     """Build deduplicated arXiv PDF URLs from chunk metadata."""
     seen: set = set()
     sources = []
@@ -49,7 +49,7 @@ async def _retrieve_chunks(
     jina,
     rag_tracer: RAGTracer,
     trace,
-) -> tuple[List[Dict], List[str], str]:
+) -> tuple[list[dict], list[str], str]:
     """Retrieve chunks, build source URLs, return (chunks, sources, search_mode)."""
     query_embedding = None
     search_mode = "bm25"
