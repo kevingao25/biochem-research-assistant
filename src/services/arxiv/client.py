@@ -51,15 +51,19 @@ def fetch_papers(from_date: date, to_date: date, max_results: int = 100) -> list
 
     papers = []
     for result in client.results(search):
-        papers.append(ArxivPaper(
-            arxiv_id=result.entry_id.split("/")[-1],
-            title=result.title.replace("\n", " ").strip(),
-            authors=[a.name for a in result.authors],
-            abstract=result.summary.replace("\n", " ").strip(),
-            categories=[c for c in result.categories],
-            published_date=result.published.replace(tzinfo=timezone.utc) if result.published.tzinfo is None else result.published,
-            pdf_url=result.pdf_url or "",
-        ))
+        papers.append(
+            ArxivPaper(
+                arxiv_id=result.entry_id.split("/")[-1],
+                title=result.title.replace("\n", " ").strip(),
+                authors=[a.name for a in result.authors],
+                abstract=result.summary.replace("\n", " ").strip(),
+                categories=[c for c in result.categories],
+                published_date=result.published.replace(tzinfo=timezone.utc)
+                if result.published.tzinfo is None
+                else result.published,
+                pdf_url=result.pdf_url or "",
+            )
+        )
 
     logger.info(f"Fetched {len(papers)} papers")
     return papers

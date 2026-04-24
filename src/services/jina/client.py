@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 JINA_API_URL = "https://api.jina.ai/v1/embeddings"
 JINA_MODEL = "jina-embeddings-v3"
 DIMENSIONS = 1024
-BATCH_SIZE = 100   # Jina recommends batching; free tier handles 100 texts per call
+BATCH_SIZE = 100  # Jina recommends batching; free tier handles 100 texts per call
 
 
 class JinaClient:

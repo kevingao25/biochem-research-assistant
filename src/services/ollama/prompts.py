@@ -9,7 +9,6 @@ from src.schemas.ollama import RAGResponse
 
 
 class RAGPromptBuilder:
-
     def __init__(self):
         self.prompts_dir = Path(__file__).parent / "prompts"
         self.system_prompt = self._load_system_prompt()
@@ -39,7 +38,6 @@ class RAGPromptBuilder:
 
 
 class ResponseParser:
-
     @staticmethod
     def parse_structured_response(response: str) -> Dict[str, Any]:
         try:

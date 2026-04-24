@@ -5,6 +5,7 @@ from src.routers.ask import _build_user_message, _extract_sources
 
 # ── Prompt construction ────────────────────────────────────────────────────────
 
+
 class TestBuildUserMessage:
     def test_includes_all_chunks(self):
         chunks = [
@@ -35,6 +36,7 @@ class TestBuildUserMessage:
 
 
 # ── Source URL extraction ──────────────────────────────────────────────────────
+
 
 class TestExtractSources:
     def test_arxiv_id_converted_to_pdf_url(self):

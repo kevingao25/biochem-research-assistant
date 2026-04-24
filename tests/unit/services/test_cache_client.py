@@ -28,7 +28,9 @@ class TestCacheKey:
         assert cache._cache_key(make_request()) == cache._cache_key(make_request())
 
     def test_different_query_produces_different_key(self, cache):
-        assert cache._cache_key(make_request(query="What is CRISPR?")) != cache._cache_key(make_request(query="How do phages work?"))
+        assert cache._cache_key(make_request(query="What is CRISPR?")) != cache._cache_key(
+            make_request(query="How do phages work?")
+        )
 
     def test_different_model_produces_different_key(self, cache):
         assert cache._cache_key(make_request(model="llama3.2:1b")) != cache._cache_key(make_request(model="mistral:7b"))

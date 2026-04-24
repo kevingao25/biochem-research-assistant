@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 class PostgreSQLDatabase(BaseDatabase):
-
     def __init__(self, config: PostgreSQLSettings):
         self.config = config
         self.engine: Optional[Engine] = None

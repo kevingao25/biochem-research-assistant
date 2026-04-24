@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 class OllamaClient:
-
     def __init__(self, settings: Settings):
         self.base_url = settings.ollama_host
         self.timeout = httpx.Timeout(float(settings.ollama_timeout))
@@ -83,8 +82,9 @@ class OllamaClient:
         try:
             if use_structured_output:
                 prompt_data = self.prompt_builder.create_structured_prompt(query, chunks)
-                response = await self.generate(model=model, prompt=prompt_data["prompt"],
-                                               temperature=0.7, format=prompt_data["format"])
+                response = await self.generate(
+                    model=model, prompt=prompt_data["prompt"], temperature=0.7, format=prompt_data["format"]
+                )
             else:
                 prompt = self.prompt_builder.create_rag_prompt(query, chunks)
                 response = await self.generate(model=model, prompt=prompt, temperature=0.7)

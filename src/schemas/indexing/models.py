@@ -4,9 +4,9 @@ from pydantic import BaseModel
 
 
 class ChunkMetadata(BaseModel):
-    chunk_index: int           # position of this chunk within the paper (0-based)
+    chunk_index: int  # position of this chunk within the paper (0-based)
     word_count: int
-    section_title: Optional[str] = None   # None when falling back to raw-text chunking
+    section_title: Optional[str] = None  # None when falling back to raw-text chunking
 
 
 class TextChunk(BaseModel):
@@ -15,4 +15,4 @@ class TextChunk(BaseModel):
     text: str
     metadata: ChunkMetadata
     arxiv_id: str
-    paper_id: str   # UUID from the papers table
+    paper_id: str  # UUID from the papers table

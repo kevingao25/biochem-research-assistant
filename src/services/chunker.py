@@ -6,18 +6,28 @@ from src.schemas.pdf_parser.models import PaperSection
 
 logger = logging.getLogger(__name__)
 
-CHUNK_SIZE = 600      # target words per chunk (sliding window)
-OVERLAP = 100         # words shared between adjacent chunks
-MIN_CHUNK = 100       # discard chunks smaller than this
-MAX_SECTION = 900     # sections larger than this get split; smaller ones stay whole
+CHUNK_SIZE = 600  # target words per chunk (sliding window)
+OVERLAP = 100  # words shared between adjacent chunks
+MIN_CHUNK = 100  # discard chunks smaller than this
+MAX_SECTION = 900  # sections larger than this get split; smaller ones stay whole
 
 # Section titles that contain no scientific content worth indexing.
 _NOISE_SECTIONS: Set[str] = {
-    "references", "bibliography", "acknowledgements", "acknowledgments",
-    "funding", "conflicts of interest", "conflict of interest",
-    "author contributions", "data availability", "ethics statement",
-    "supplementary materials", "supplementary material", "appendix",
-    "declaration of competing interest", "declarations",
+    "references",
+    "bibliography",
+    "acknowledgements",
+    "acknowledgments",
+    "funding",
+    "conflicts of interest",
+    "conflict of interest",
+    "author contributions",
+    "data availability",
+    "ethics statement",
+    "supplementary materials",
+    "supplementary material",
+    "appendix",
+    "declaration of competing interest",
+    "declarations",
 }
 
 
@@ -73,7 +83,7 @@ class TextChunker:
           section title on each sub-chunk so we know where it came from.
         """
         chunks: List[TextChunk] = []
-        pending: List[PaperSection] = []   # small sections waiting to be combined
+        pending: List[PaperSection] = []  # small sections waiting to be combined
 
         abstract_words = set(header.lower().split())
 

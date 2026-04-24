@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 
 class LangfuseTracer:
-
     def __init__(self, settings: Settings):
         self.settings = settings.langfuse
         self.client: Optional[Langfuse] = None

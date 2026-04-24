@@ -11,6 +11,7 @@ def chunker():
 
 # ── Noise section filtering ────────────────────────────────────────────────────
 
+
 class TestIsNoiseSection:
     def test_known_noise_sections_are_filtered(self, chunker):
         for title in ["References", "Bibliography", "Acknowledgements", "Funding"]:
@@ -30,6 +31,7 @@ class TestIsNoiseSection:
 
 # ── Duplicate abstract detection ───────────────────────────────────────────────
 
+
 class TestIsDuplicateAbstract:
     def test_high_overlap_is_duplicate(self, chunker):
         abstract_words = set("the quick brown fox jumps over the lazy dog".split())
@@ -48,6 +50,7 @@ class TestIsDuplicateAbstract:
 
 
 # ── Section-based chunking ─────────────────────────────────────────────────────
+
 
 class TestChunkBySections:
     def test_normal_section_produces_one_chunk(self, chunker):
@@ -92,6 +95,7 @@ class TestChunkBySections:
 
 
 # ── Sliding window ─────────────────────────────────────────────────────────────
+
 
 class TestSlidingWindow:
     def test_short_text_produces_one_chunk(self, chunker):

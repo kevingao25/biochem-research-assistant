@@ -46,11 +46,14 @@ class RAGTracer:
     def end_search(self, span, chunks: List[Dict], arxiv_ids: List[str], total_hits: int):
         if not span:
             return
-        self.tracer.update_span(span, {
-            "chunks_returned": len(chunks),
-            "unique_papers": len(set(arxiv_ids)),
-            "total_hits": total_hits,
-        })
+        self.tracer.update_span(
+            span,
+            {
+                "chunks_returned": len(chunks),
+                "unique_papers": len(set(arxiv_ids)),
+                "total_hits": total_hits,
+            },
+        )
 
     @contextmanager
     def trace_prompt_construction(self, trace, chunks: List[Dict]):
@@ -64,10 +67,13 @@ class RAGTracer:
     def end_prompt(self, span, prompt: str):
         if not span:
             return
-        self.tracer.update_span(span, {
-            "prompt_length": len(prompt),
-            "prompt_preview": prompt[:200] + "..." if len(prompt) > 200 else prompt,
-        })
+        self.tracer.update_span(
+            span,
+            {
+                "prompt_length": len(prompt),
+                "prompt_preview": prompt[:200] + "..." if len(prompt) > 200 else prompt,
+            },
+        )
 
     @contextmanager
     def trace_generation(self, trace, model: str, prompt: str):
@@ -87,9 +93,11 @@ class RAGTracer:
         if not trace:
             return
         try:
-            trace.update(output={
-                "answer": response,
-                "total_duration_seconds": round(total_duration, 3),
-            })
+            trace.update(
+                output={
+                    "answer": response,
+                    "total_duration_seconds": round(total_duration, 3),
+                }
+            )
         except Exception as e:
             logger.error(f"Langfuse end_request error: {e}")

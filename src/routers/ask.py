@@ -134,9 +134,7 @@ async def ask_question(
 
             # Generate
             with rag_tracer.trace_generation(trace, request.model, final_prompt) as gen_span:
-                rag_response = await ollama.generate_rag_answer(
-                    query=request.query, chunks=chunks, model=request.model
-                )
+                rag_response = await ollama.generate_rag_answer(query=request.query, chunks=chunks, model=request.model)
                 answer = rag_response.get("answer", "Unable to generate answer")
                 rag_tracer.end_generation(gen_span, answer, request.model)
 
@@ -221,10 +219,16 @@ async def ask_question_stream(
                 rag_tracer.end_request(trace, full_response, time.time() - start_time)
 
                 if cache and full_response:
-                    await cache.store_response(request, AskResponse(
-                        query=request.query, answer=full_response,
-                        sources=sources, chunks_used=len(chunks), search_mode=search_mode,
-                    ))
+                    await cache.store_response(
+                        request,
+                        AskResponse(
+                            query=request.query,
+                            answer=full_response,
+                            sources=sources,
+                            chunks_used=len(chunks),
+                            search_mode=search_mode,
+                        ),
+                    )
 
             except Exception as e:
                 logger.error(f"Streaming error: {e}")

@@ -22,14 +22,12 @@ class PDFProcessor:
 
     def __init__(self):
         pipeline_options = PdfPipelineOptions()
-        pipeline_options.do_ocr = False          # OCR is very slow; arXiv PDFs are programmatic
+        pipeline_options.do_ocr = False  # OCR is very slow; arXiv PDFs are programmatic
         pipeline_options.do_table_structure = False
         pipeline_options.document_timeout = DOCUMENT_TIMEOUT_SECONDS
 
         self._converter = DocumentConverter(
-            format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-            }
+            format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)}
         )
 
     def download_pdf(self, url: str, dest: Path) -> None:
@@ -60,10 +58,12 @@ class PDFProcessor:
             if isinstance(item, SectionHeaderItem):
                 # Save the section we were building before starting a new one
                 if current_text_parts:
-                    sections.append(PaperSection(
-                        title=current_title,
-                        content=" ".join(current_text_parts).strip(),
-                    ))
+                    sections.append(
+                        PaperSection(
+                            title=current_title,
+                            content=" ".join(current_text_parts).strip(),
+                        )
+                    )
                 current_title = item.text.strip()
                 current_text_parts = []
             elif isinstance(item, TextItem) and item.text:
@@ -71,10 +71,12 @@ class PDFProcessor:
 
         # Don't forget the last section
         if current_text_parts:
-            sections.append(PaperSection(
-                title=current_title,
-                content=" ".join(current_text_parts).strip(),
-            ))
+            sections.append(
+                PaperSection(
+                    title=current_title,
+                    content=" ".join(current_text_parts).strip(),
+                )
+            )
 
         return PdfContent(
             sections=sections,

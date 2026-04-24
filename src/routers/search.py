@@ -57,7 +57,7 @@ async def hybrid_search(
             for h in raw_hits
         ]
 
-        hits = hits[request.from_:]
+        hits = hits[request.from_ :]
 
         if request.min_score > 0.0:
             hits = [h for h in hits if h.score >= request.min_score]

@@ -59,13 +59,13 @@ def get_pdf_parser(request: Request) -> "PDFProcessor":
 
 
 # Shorthand type aliases for route parameters
-SettingsDep   = Annotated[Settings,      Depends(get_request_settings)]
-DatabaseDep   = Annotated[BaseDatabase,  Depends(get_database)]
-SessionDep    = Annotated[Session,       Depends(get_db_session)]
-QdrantDep     = Annotated[QdrantService, Depends(get_qdrant)]
-JinaDep       = Annotated[JinaClient,    Depends(get_jina)]
-OllamaDep     = Annotated[OllamaClient,  Depends(get_ollama)]
-CacheDep      = Annotated[CacheClient,   Depends(get_cache)]
-LangfuseDep   = Annotated[LangfuseTracer, Depends(get_langfuse)]
-ArxivDep      = Annotated[Callable,      Depends(get_arxiv)]
+SettingsDep = Annotated[Settings, Depends(get_request_settings)]
+DatabaseDep = Annotated[BaseDatabase, Depends(get_database)]
+SessionDep = Annotated[Session, Depends(get_db_session)]
+QdrantDep = Annotated[QdrantService, Depends(get_qdrant)]
+JinaDep = Annotated[JinaClient, Depends(get_jina)]
+OllamaDep = Annotated[OllamaClient, Depends(get_ollama)]
+CacheDep = Annotated[CacheClient, Depends(get_cache)]
+LangfuseDep = Annotated[LangfuseTracer, Depends(get_langfuse)]
+ArxivDep = Annotated[Callable, Depends(get_arxiv)]
 # PDFParserDep omitted — docling not installed in dev; add when available

@@ -81,7 +81,10 @@ class TestAskEndpoint:
             {"arxiv_id": "2401.00001", "chunk_text": "Some text."},
         ]
         mocks["ollama"].generate_rag_answer.return_value = {
-            "answer": "An answer.", "sources": [], "confidence": "medium", "citations": [],
+            "answer": "An answer.",
+            "sources": [],
+            "confidence": "medium",
+            "citations": [],
         }
 
         await client.post("/api/v1/ask", json={"query": "What is CRISPR?"})
@@ -123,7 +126,7 @@ class TestAskStreamEndpoint:
         response = await client.post("/api/v1/ask/stream", json={"query": "What is CRISPR?"})
 
         first_event_line = next(line for line in response.text.splitlines() if line.startswith("data:"))
-        first_event = json.loads(first_event_line[len("data: "):])
+        first_event = json.loads(first_event_line[len("data: ") :])
 
         assert "sources" in first_event
         assert "chunks_used" in first_event
@@ -143,10 +146,8 @@ class TestAskStreamEndpoint:
 
         response = await client.post("/api/v1/ask/stream", json={"query": "What is CRISPR?"})
 
-        last_event_line = next(
-            line for line in reversed(response.text.splitlines()) if line.startswith("data:")
-        )
-        last_event = json.loads(last_event_line[len("data: "):])
+        last_event_line = next(line for line in reversed(response.text.splitlines()) if line.startswith("data:"))
+        last_event = json.loads(last_event_line[len("data: ") :])
         assert last_event.get("done") is True
 
     async def test_stream_empty_query_is_422(self, client, mocks):

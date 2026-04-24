@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 class CacheClient:
-
     def __init__(self, redis_client: redis.Redis, settings: RedisSettings):
         self.redis = redis_client
         self.ttl = timedelta(hours=settings.ttl_hours)
@@ -41,11 +40,13 @@ class CacheClient:
 
     async def store_response(self, request: AskRequest, response: AskResponse) -> bool:
         try:
-            return bool(self.redis.set(
-                self._cache_key(request),
-                response.model_dump_json(),
-                ex=self.ttl,
-            ))
+            return bool(
+                self.redis.set(
+                    self._cache_key(request),
+                    response.model_dump_json(),
+                    ex=self.ttl,
+                )
+            )
         except Exception as e:
             logger.error(f"Cache write error: {e}")
             return False
