@@ -8,4 +8,4 @@ fastembed==0.7.4
 httpx==0.28.1
 redis==7.4.0
 langfuse==4.5.0
-pydantic-settings==2.7.0
+pydantic-settings==2.14.0

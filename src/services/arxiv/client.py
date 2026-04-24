@@ -4,10 +4,9 @@ from datetime import UTC, date, datetime
 
 import arxiv
 
-logger = logging.getLogger(__name__)
+from src.config import ArxivSettings
 
-# arXiv categories relevant to phage-bacteria research
-CATEGORIES = ["q-bio.BM", "q-bio.MN", "q-bio.GN"]
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -21,49 +20,49 @@ class ArxivPaper:
     pdf_url: str
 
 
-def fetch_papers(from_date: date, to_date: date, max_results: int = 100) -> list[ArxivPaper]:
-    """
-    Fetch papers from arXiv published between from_date and to_date.
+class ArxivClient:
+    """Fetches paper metadata from the arXiv API."""
 
-    arXiv date format: YYYYMMDDHHMMSS
-    We search all three q-bio categories with OR and filter by date range.
-    The client adds a 3-second delay between requests automatically.
-    """
-    category_query = " OR ".join(f"cat:{c}" for c in CATEGORIES)
-    date_from = from_date.strftime("%Y%m%d") + "0000"
-    date_to = to_date.strftime("%Y%m%d") + "2359"
-    query = f"({category_query}) AND submittedDate:[{date_from} TO {date_to}]"
-
-    logger.info(f"Fetching arXiv papers: {query}")
-
-    client = arxiv.Client(
-        page_size=50,
-        delay_seconds=3.0,  # arXiv rate limit: 3 seconds between requests
-        num_retries=3,
-    )
-
-    search = arxiv.Search(
-        query=query,
-        max_results=max_results,
-        sort_by=arxiv.SortCriterion.SubmittedDate,
-        sort_order=arxiv.SortOrder.Descending,
-    )
-
-    papers = []
-    for result in client.results(search):
-        papers.append(
-            ArxivPaper(
-                arxiv_id=result.entry_id.split("/")[-1],
-                title=result.title.replace("\n", " ").strip(),
-                authors=[a.name for a in result.authors],
-                abstract=result.summary.replace("\n", " ").strip(),
-                categories=[c for c in result.categories],
-                published_date=result.published.replace(tzinfo=UTC)
-                if result.published.tzinfo is None
-                else result.published,
-                pdf_url=result.pdf_url or "",
-            )
+    def __init__(self, settings: ArxivSettings):
+        self.settings = settings
+        self._client = arxiv.Client(
+            page_size=50,
+            delay_seconds=settings.rate_limit_delay,
+            num_retries=3,
         )
 
-    logger.info(f"Fetched {len(papers)} papers")
-    return papers
+    def fetch_papers(self, from_date: date, to_date: date, max_results: int | None = None) -> list[ArxivPaper]:
+        """Fetch papers published between from_date and to_date across configured categories."""
+        max_results = max_results or self.settings.max_results
+        category_query = " OR ".join(f"cat:{c}" for c in self.settings.search_categories)
+        date_from = from_date.strftime("%Y%m%d") + "0000"
+        date_to = to_date.strftime("%Y%m%d") + "2359"
+        query = f"({category_query}) AND submittedDate:[{date_from} TO {date_to}]"
+
+        logger.info(f"Fetching arXiv papers: {query}")
+
+        search = arxiv.Search(
+            query=query,
+            max_results=max_results,
+            sort_by=arxiv.SortCriterion.SubmittedDate,
+            sort_order=arxiv.SortOrder.Descending,
+        )
+
+        papers = []
+        for result in self._client.results(search):
+            papers.append(
+                ArxivPaper(
+                    arxiv_id=result.entry_id.split("/")[-1],
+                    title=result.title.replace("\n", " ").strip(),
+                    authors=[a.name for a in result.authors],
+                    abstract=result.summary.replace("\n", " ").strip(),
+                    categories=list(result.categories),
+                    published_date=result.published.replace(tzinfo=UTC)
+                    if result.published.tzinfo is None
+                    else result.published,
+                    pdf_url=result.pdf_url or "",
+                )
+            )
+
+        logger.info(f"Fetched {len(papers)} papers")
+        return papers

@@ -1,4 +1,4 @@
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends, Request
@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from src.config import Settings
 from src.db.interfaces.base import BaseDatabase
+from src.services.arxiv.client import ArxivClient
 from src.services.cache.client import CacheClient
 from src.services.jina.client import JinaClient
 from src.services.langfuse.client import LangfuseTracer
@@ -50,8 +51,7 @@ def get_langfuse(request: Request) -> LangfuseTracer:
     return request.app.state.langfuse
 
 
-def get_arxiv(request: Request) -> Callable:
-    # app.state.arxiv holds the fetch_papers function directly
+def get_arxiv(request: Request) -> ArxivClient:
     return request.app.state.arxiv
 
 
@@ -68,5 +68,5 @@ JinaDep = Annotated[JinaClient, Depends(get_jina)]
 OllamaDep = Annotated[OllamaClient, Depends(get_ollama)]
 CacheDep = Annotated[CacheClient, Depends(get_cache)]
 LangfuseDep = Annotated[LangfuseTracer, Depends(get_langfuse)]
-ArxivDep = Annotated[Callable, Depends(get_arxiv)]
+ArxivDep = Annotated[ArxivClient, Depends(get_arxiv)]
 # PDFParserDep omitted — docling not installed in dev; add when available

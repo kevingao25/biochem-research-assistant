@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from src.db.factory import make_database
 from src.repositories.paper import PaperRepository
 from src.schemas.arxiv.paper import PaperCreate
-from src.services.arxiv.client import fetch_papers as _fetch_from_arxiv
+from src.services.arxiv.factory import make_arxiv_client
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ def fetch_papers(ds: str | None = None) -> dict:
     to_date = run_date
 
     logger.info(f"Fetching papers from {from_date} to {to_date}")
-    papers = _fetch_from_arxiv(from_date=from_date, to_date=to_date)
+    papers = make_arxiv_client().fetch_papers(from_date=from_date, to_date=to_date)
 
     db = make_database()
 
