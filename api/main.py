@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 
 from src.db.interfaces.postgresql import PostgreSQLDatabase
 from src.schemas.database.config import PostgreSQLSettings
-from src.routers.ask import router as ask_router
+from src.routers.ask import ask_router, stream_router
 from src.routers.papers import router as papers_router
 from src.services.cache.client import CacheClient
 from src.services.jina.client import JinaClient
@@ -73,6 +73,7 @@ app = FastAPI(
 
 app.include_router(papers_router, prefix="/api/v1")
 app.include_router(ask_router, prefix="/api/v1")
+app.include_router(stream_router, prefix="/api/v1/ask")
 
 
 @app.get("/health")
