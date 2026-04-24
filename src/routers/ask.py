@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from src.dependencies import CacheDep, JinaDep, LangfuseDep, OllamaDep, QdrantDep
 from src.schemas.api.ask import AskRequest, AskResponse
 from src.services.langfuse.tracer import RAGTracer
+from src.services.ollama.prompts import RAGPromptBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +128,6 @@ async def ask_question(
 
             # Build prompt
             with rag_tracer.trace_prompt_construction(trace, chunks) as prompt_span:
-                from src.services.ollama.prompts import RAGPromptBuilder
                 prompt_builder = RAGPromptBuilder()
                 final_prompt = prompt_builder.create_rag_prompt(request.query, chunks)
                 rag_tracer.end_prompt(prompt_span, final_prompt)
@@ -200,7 +200,6 @@ async def ask_question_stream(
 
                 # Build prompt
                 with rag_tracer.trace_prompt_construction(trace, chunks) as prompt_span:
-                    from src.services.ollama.prompts import RAGPromptBuilder
                     final_prompt = RAGPromptBuilder().create_rag_prompt(request.query, chunks)
                     rag_tracer.end_prompt(prompt_span, final_prompt)
 
@@ -229,6 +228,7 @@ async def ask_question_stream(
 
             except Exception as e:
                 logger.error(f"Streaming error: {e}")
+                rag_tracer.end_request(trace, "", time.time() - start_time)
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(
