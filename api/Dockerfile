@@ -1,13 +1,16 @@
 FROM python:3.12-slim
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+
 WORKDIR /app
 
-COPY requirements.txt .
-
-# --no-cache-dir keeps the image smaller by not storing the pip download cache
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
+# UV_SYSTEM_PYTHON=1 installs packages into the system Python interpreter
+# rather than a virtualenv. This is required because Docker Compose mounts
+# ./api:/app at runtime for hot reloading — which would wipe out any .venv
+# created at /app during the build step.
+ENV UV_SYSTEM_PYTHON=1
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
 EXPOSE 8000
 

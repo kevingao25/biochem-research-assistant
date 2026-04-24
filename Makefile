@@ -42,7 +42,7 @@ health: ## Check all service health endpoints
 		|| printf "%-12s \033[31m✗ not responding\033[0m\n" "Postgres"
 
 setup: ## Install Python dependencies
-	uv pip install -r api/requirements.txt -r requirements-dev.txt
+	uv sync
 
 format: ## Format code with ruff
 	uv run ruff format src/ tests/ api/
