@@ -9,7 +9,7 @@ from src.db.interfaces.postgresql import PostgreSQLDatabase
 from src.schemas.database.config import PostgreSQLSettings
 from src.routers.ask import router as ask_router
 from src.routers.papers import router as papers_router
-from src.services.cache_client import CacheClient
+from src.services.cache.client import CacheClient
 from src.services.jina_client import JinaClient
 from src.services.langfuse.factory import make_langfuse_tracer
 from src.services.ollama.client import OllamaClient

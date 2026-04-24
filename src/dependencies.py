@@ -3,7 +3,7 @@ from typing import Annotated, Generator
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
-from src.services.cache_client import CacheClient
+from src.services.cache.client import CacheClient
 from src.services.jina_client import JinaClient
 from src.services.langfuse.client import LangfuseTracer
 from src.services.ollama.client import OllamaClient

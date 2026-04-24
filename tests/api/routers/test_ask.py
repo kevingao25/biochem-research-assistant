@@ -9,7 +9,7 @@ from src.schemas.api.ask import AskResponse
 
 class TestAskEndpoint:
     async def test_happy_path_returns_correct_shape(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = [
             {"arxiv_id": "2401.00001", "chunk_text": "CRISPR is a gene editing tool."},
@@ -50,7 +50,7 @@ class TestAskEndpoint:
             chunks_used=1,
             search_mode="hybrid",
         )
-        mocks["cache"].get.return_value = cached
+        mocks["cache"].find_cached_response.return_value = cached
 
         response = await client.post("/api/v1/ask", json={"query": "What is CRISPR?"})
 
@@ -60,7 +60,7 @@ class TestAskEndpoint:
         mocks["ollama"].generate.assert_not_called()
 
     async def test_zero_chunks_returns_graceful_message(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = []
 
@@ -73,7 +73,7 @@ class TestAskEndpoint:
         mocks["ollama"].generate.assert_not_called()
 
     async def test_answer_is_cached_after_generation(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = [
             {"arxiv_id": "2401.00001", "chunk_text": "Some text."},
@@ -82,14 +82,14 @@ class TestAskEndpoint:
 
         await client.post("/api/v1/ask", json={"query": "What is CRISPR?"})
 
-        mocks["cache"].set.assert_called_once()
+        mocks["cache"].store_response.assert_called_once()
 
 
 # ── /ask/stream ───────────────────────────────────────────────────────────────
 
 class TestAskStreamEndpoint:
     async def test_response_is_event_stream(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = [
             {"arxiv_id": "2401.00001", "chunk_text": "Some text."},
@@ -107,7 +107,7 @@ class TestAskStreamEndpoint:
         assert "text/event-stream" in response.headers["content-type"]
 
     async def test_first_event_is_metadata(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = [
             {"arxiv_id": "2401.00001", "chunk_text": "Some text."},
@@ -131,7 +131,7 @@ class TestAskStreamEndpoint:
         assert "search_mode" in first_event
 
     async def test_stream_ends_with_done_event(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = [
             {"arxiv_id": "2401.00001", "chunk_text": "Some text."},

@@ -67,7 +67,7 @@ async def ask(
 
         # 1. Cache check — skip the whole pipeline if we've seen this exact request
         with langfuse.span(trace, "cache_lookup") as s:
-            cached = await cache.get(request)
+            cached = await cache.find_cached_response(request)
             if s:
                 s.update(output={"hit": cached is not None})
         if cached:
@@ -111,7 +111,7 @@ async def ask(
         )
 
         # 5. Cache for next time
-        await cache.set(request, response)
+        await cache.store_response(request, response)
 
         return response
 
@@ -136,7 +136,7 @@ async def ask_stream(
     """
     async def generate() -> AsyncIterator[str]:
         # Serve cached answer by re-streaming word-by-word
-        cached = await cache.get(request)
+        cached = await cache.find_cached_response(request)
         if cached:
             yield f"data: {json.dumps({'sources': cached.sources, 'chunks_used': cached.chunks_used, 'search_mode': cached.search_mode})}\n\n"
             for word in cached.answer.split():
@@ -171,7 +171,7 @@ async def ask_stream(
 
         # Cache the full reconstructed answer after streaming completes
         if full_answer:
-            await cache.set(request, AskResponse(
+            await cache.store_response(request, AskResponse(
                 query=request.query,
                 answer=full_answer,
                 sources=sources,
