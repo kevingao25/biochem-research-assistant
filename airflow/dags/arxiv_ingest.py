@@ -13,7 +13,7 @@ from src.schemas.arxiv.paper import PaperCreate
 from src.services.arxiv.client import fetch_papers
 from src.services.chunker import TextChunker
 from src.services.jina.client import JinaClient
-from src.services.pdf_parser.parser import PdfProcessor
+from src.services.pdf_parser.parser import PDFProcessor
 from src.services.qdrant.client import QdrantService
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ def arxiv_ingest():
         qdrant = QdrantService(url=os.environ["QDRANT_URL"])
         qdrant.setup_collection()
 
-        processor = PdfProcessor()
+        processor = PDFProcessor()
         chunker = TextChunker()
         jina = JinaClient(api_key=os.environ["JINA_API_KEY"])
 

@@ -17,7 +17,7 @@ MAX_FILE_SIZE_MB = 50
 DOCUMENT_TIMEOUT_SECONDS = 120.0
 
 
-class PdfProcessor:
+class PDFProcessor:
     """Downloads and parses PDFs using docling."""
 
     def __init__(self):
