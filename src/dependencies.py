@@ -43,7 +43,7 @@ def get_ollama(request: Request) -> OllamaClient:
     return request.app.state.ollama
 
 
-def get_cache(request: Request) -> CacheClient:
+def get_cache(request: Request) -> CacheClient | None:
     return request.app.state.cache
 
 
@@ -66,7 +66,7 @@ SessionDep = Annotated[Session, Depends(get_db_session)]
 QdrantDep = Annotated[QdrantService, Depends(get_qdrant)]
 JinaDep = Annotated[JinaClient, Depends(get_jina)]
 OllamaDep = Annotated[OllamaClient, Depends(get_ollama)]
-CacheDep = Annotated[CacheClient, Depends(get_cache)]
+CacheDep = Annotated[CacheClient | None, Depends(get_cache)]
 LangfuseDep = Annotated[LangfuseTracer, Depends(get_langfuse)]
 ArxivDep = Annotated[ArxivClient, Depends(get_arxiv)]
 # PDFParserDep omitted — docling not installed in dev; add when available

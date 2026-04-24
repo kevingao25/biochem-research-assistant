@@ -1,10 +1,12 @@
 import json
 import logging
+import re
 import time
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
+from starlette.concurrency import run_in_threadpool
 
 from src.dependencies import CacheDep, JinaDep, LangfuseDep, OllamaDep, QdrantDep
 from src.schemas.api.ask import AskRequest, AskResponse
@@ -15,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 ask_router = APIRouter(tags=["ask"])
 stream_router = APIRouter(tags=["stream"])
+
+_ARXIV_VERSION_SUFFIX = re.compile(r"v\d+$")
 
 
 def _build_user_message(query: str, chunks: list[dict]) -> str:
@@ -35,7 +39,7 @@ def _extract_sources(chunks: list[dict]) -> list[str]:
     for chunk in chunks:
         arxiv_id = chunk.get("arxiv_id", "")
         if arxiv_id:
-            clean_id = arxiv_id.split("v")[0] if "v" in arxiv_id else arxiv_id
+            clean_id = _ARXIV_VERSION_SUFFIX.sub("", arxiv_id)
             url = f"https://arxiv.org/pdf/{clean_id}.pdf"
             if url not in seen:
                 seen.add(url)
@@ -62,13 +66,18 @@ async def _retrieve_chunks(
             except Exception as e:
                 logger.warning(f"Embedding failed, falling back to BM25: {e}")
                 if emb_span:
-                    rag_tracer.tracer.update_span(emb_span, {"success": False, "error": str(e)})
+                    rag_tracer.tracer.update_span(emb_span, metadata={"success": False, "error": str(e)})
 
     with rag_tracer.trace_search(trace, request.query, request.top_k) as search_span:
         if query_embedding is not None:
-            raw_hits = qdrant.search_hybrid(request.query, dense_embedding=query_embedding, limit=request.top_k)
+            raw_hits = await run_in_threadpool(
+                qdrant.search_hybrid,
+                request.query,
+                dense_embedding=query_embedding,
+                limit=request.top_k,
+            )
         else:
-            raw_hits = qdrant.search(request.query, limit=request.top_k)
+            raw_hits = await run_in_threadpool(qdrant.search, request.query, limit=request.top_k)
             search_mode = "bm25"
 
         chunks = []
@@ -81,7 +90,7 @@ async def _retrieve_chunks(
             chunks.append({"arxiv_id": arxiv_id, "chunk_text": hit.get("chunk_text", "")})
             if arxiv_id:
                 arxiv_ids.append(arxiv_id)
-                clean_id = arxiv_id.split("v")[0] if "v" in arxiv_id else arxiv_id
+                clean_id = _ARXIV_VERSION_SUFFIX.sub("", arxiv_id)
                 url = f"https://arxiv.org/pdf/{clean_id}.pdf"
                 if url not in seen_urls:
                     sources.append(url)
@@ -107,6 +116,9 @@ async def ask_question(
 
     with rag_tracer.trace_request(request.query) as trace:
         try:
+            if request.categories:
+                raise HTTPException(status_code=400, detail="Category filtering is not implemented for ask yet")
+
             # Cache check
             if cache:
                 cached = await cache.find_cached_response(request)
@@ -156,6 +168,8 @@ async def ask_question(
 
             return response
 
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Ask error: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -171,6 +185,8 @@ async def ask_question_stream(
     langfuse: LangfuseDep,
 ) -> StreamingResponse:
     """Stream the answer token-by-token using Server-Sent Events."""
+    if request.categories:
+        raise HTTPException(status_code=400, detail="Category filtering is not implemented for ask yet")
 
     async def generate() -> AsyncIterator[str]:
         rag_tracer = RAGTracer(langfuse)

@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -10,6 +11,8 @@ from src.exceptions import OllamaConnectionError, OllamaException, OllamaTimeout
 from src.services.ollama.prompts import RAGPromptBuilder, ResponseParser
 
 logger = logging.getLogger(__name__)
+
+_ARXIV_VERSION_SUFFIX = re.compile(r"v\d+$")
 
 
 class OllamaClient:
@@ -102,7 +105,7 @@ class OllamaClient:
             for chunk in chunks:
                 arxiv_id = chunk.get("arxiv_id", "")
                 if arxiv_id:
-                    clean_id = arxiv_id.split("v")[0] if "v" in arxiv_id else arxiv_id
+                    clean_id = _ARXIV_VERSION_SUFFIX.sub("", arxiv_id)
                     url = f"https://arxiv.org/pdf/{clean_id}.pdf"
                     if url not in seen_urls:
                         sources.append(url)

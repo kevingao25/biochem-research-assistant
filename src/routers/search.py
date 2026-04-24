@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from src.dependencies import JinaDep, QdrantDep
 from src.schemas.api.search import HybridSearchRequest, SearchHit, SearchResponse
@@ -18,7 +19,12 @@ async def hybrid_search(
 ) -> SearchResponse:
     """Search paper chunks with BM25 or hybrid (BM25 + dense) mode."""
     try:
-        if not qdrant.health_check():
+        if request.categories:
+            raise HTTPException(status_code=400, detail="Category filtering is not implemented for search yet")
+        if request.latest_papers:
+            raise HTTPException(status_code=400, detail="Latest-paper filtering is not implemented for search yet")
+
+        if not await run_in_threadpool(qdrant.health_check):
             raise HTTPException(status_code=503, detail="Search service unavailable")
 
         query_embedding = None
@@ -31,14 +37,16 @@ async def hybrid_search(
             except Exception as e:
                 logger.warning(f"Embedding failed, falling back to BM25: {e}")
 
+        fetch_limit = request.from_ + request.size
         if query_embedding is not None:
-            raw_hits = qdrant.search_hybrid(
+            raw_hits = await run_in_threadpool(
+                qdrant.search_hybrid,
                 request.query,
                 dense_embedding=query_embedding,
-                limit=request.size,
+                limit=fetch_limit,
             )
         else:
-            raw_hits = qdrant.search(request.query, limit=request.size)
+            raw_hits = await run_in_threadpool(qdrant.search, request.query, limit=fetch_limit)
 
         hits = [
             SearchHit(

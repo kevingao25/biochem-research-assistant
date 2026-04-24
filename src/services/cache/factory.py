@@ -22,6 +22,10 @@ def make_redis_client(settings: Settings) -> redis.Redis:
     return client
 
 
-def make_cache_client(settings: Settings) -> CacheClient:
-    redis_client = make_redis_client(settings)
+def make_cache_client(settings: Settings) -> CacheClient | None:
+    try:
+        redis_client = make_redis_client(settings)
+    except redis.RedisError as e:
+        logger.warning(f"Redis unavailable; response cache disabled: {e}")
+        return None
     return CacheClient(redis_client, settings.redis)

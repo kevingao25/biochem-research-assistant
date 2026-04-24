@@ -27,7 +27,7 @@ class QdrantService:
         return self._encoder
 
     def setup_collection(self) -> None:
-        """Create the papers_chunks collection, or recreate it if the dense vector is missing."""
+        """Create the papers_chunks collection if it does not exist."""
         existing = {c.name for c in self.client.get_collections().collections}
 
         if COLLECTION in existing:
@@ -36,9 +36,10 @@ class QdrantService:
             if has_dense:
                 logger.info(f"Qdrant collection '{COLLECTION}' already exists with dense vectors")
                 return
-            # Collection exists but predates dense vectors — drop and recreate.
-            logger.info(f"Recreating '{COLLECTION}' to add dense vector field")
-            self.client.delete_collection(COLLECTION)
+            raise RuntimeError(
+                f"Qdrant collection '{COLLECTION}' exists without the required dense vector field. "
+                "Run a migration or reindex into a fresh collection before starting the service."
+            )
 
         self.client.create_collection(
             collection_name=COLLECTION,
@@ -112,10 +113,11 @@ class QdrantService:
     def search_hybrid(self, query: str, dense_embedding: list[float], limit: int = 10) -> list[dict]:
         """Hybrid BM25 + dense search using Qdrant's native RRF fusion.
 
-        Qdrant fetches the top 20 from each index independently (prefetch),
+        Qdrant fetches at least the requested limit from each index independently (prefetch),
         then merges them with Reciprocal Rank Fusion before returning `limit` results.
         """
         query_sparse = next(iter(self.encoder.query_embed(query)))
+        prefetch_limit = max(20, limit)
 
         results = self.client.query_points(
             collection_name=COLLECTION,
@@ -126,12 +128,12 @@ class QdrantService:
                         values=query_sparse.values.tolist(),
                     ),
                     using="bm25",
-                    limit=20,
+                    limit=prefetch_limit,
                 ),
                 models.Prefetch(
                     query=dense_embedding,
                     using="dense",
-                    limit=20,
+                    limit=prefetch_limit,
                 ),
             ],
             query=models.FusionQuery(fusion=models.Fusion.RRF),

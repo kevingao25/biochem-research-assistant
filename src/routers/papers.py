@@ -1,7 +1,7 @@
-import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
+from starlette.concurrency import run_in_threadpool
 
 from src.dependencies import JinaDep, QdrantDep, SessionDep
 from src.repositories.paper import PaperRepository
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/papers", tags=["papers"])
 # FastAPI matches routes top-to-bottom — if /{arxiv_id} came first,
 # a request to /papers/search would match it with arxiv_id="search".
 @router.get("/search", response_model=SearchResponse)
-def search_papers(
+async def search_papers(
     qdrant: QdrantDep,
     jina: JinaDep,
     q: str = Query(..., description="Search query"),
@@ -28,12 +28,12 @@ def search_papers(
     available even when the embedding API is down.
     """
     try:
-        dense_embedding = asyncio.run(jina.embed_query(q))
-        hits = qdrant.search_hybrid(q, dense_embedding=dense_embedding, limit=limit)
+        dense_embedding = await jina.embed_query(q)
+        hits = await run_in_threadpool(qdrant.search_hybrid, q, dense_embedding=dense_embedding, limit=limit)
         search_mode = "hybrid"
     except Exception as e:
         logger.warning(f"Jina embedding failed, falling back to BM25: {e}")
-        hits = qdrant.search(q, limit=limit)
+        hits = await run_in_threadpool(qdrant.search, q, limit=limit)
         search_mode = "bm25"
 
     return SearchResponse(

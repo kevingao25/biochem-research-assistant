@@ -52,7 +52,6 @@ def process_and_index_papers() -> dict:
             paper.sections = [{"title": s.title, "content": s.content} for s in pdf_content.sections]
             paper.parser_used = "docling"
             paper.parser_metadata = pdf_content.parser_metadata
-            paper.pdf_processed = True
             paper.pdf_processing_date = datetime.now(UTC)
             repo.update(paper)
 
@@ -70,6 +69,9 @@ def process_and_index_papers() -> dict:
                 chunk_texts = [c.text for c in chunks]
                 dense_embeddings = asyncio.run(jina.embed_passages(chunk_texts))
                 qdrant.index_chunks(chunks, dense_embeddings=dense_embeddings)
+
+            paper.pdf_processed = True
+            repo.update(paper)
 
             processed += 1
             logger.info(f"Processed {paper.arxiv_id}: {len(chunks)} chunks indexed")
