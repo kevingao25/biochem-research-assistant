@@ -20,7 +20,7 @@ A production RAG system that ingests biochemistry papers from arXiv, indexes the
 ```bash
 cp .env.example .env   # fill in secrets (see Environment Variables below)
 make start             # build and start all services
-make health            # verify all 6 services are healthy
+make health            # verify all services are healthy
 
 # Pull the LLM model into Ollama on first run
 docker exec biochem-research-assistant-ollama-1 ollama pull llama3.2:1b
@@ -32,10 +32,11 @@ docker exec biochem-research-assistant-ollama-1 ollama pull llama3.2:1b
 |-----|-------------|
 | `POST /api/v1/ask` | Ask a question — returns a grounded answer with citations |
 | `POST /api/v1/ask/stream` | Same but streams the answer token-by-token (SSE) |
+| `POST /api/v1/search/` | Hybrid BM25 + semantic search over paper chunks |
 | `GET /api/v1/papers` | List recently ingested papers |
 | `GET /api/v1/papers/{arxiv_id}` | Get a single paper by arXiv ID |
-| `GET /api/v1/papers/search?q=...` | Hybrid BM25 + semantic search |
-| `GET /health` | Service health status |
+| `GET /api/v1/papers/search?q=...` | Full-text search by query string |
+| `GET /api/v1/health` | Per-service health status (typed JSON) |
 | `GET /docs` | Interactive API docs (Swagger) |
 | `http://localhost:8080` | Airflow UI (admin / see .env) |
 | `http://localhost:6333/dashboard` | Qdrant dashboard |
@@ -83,6 +84,48 @@ docker exec biochem-research-assistant-ollama-1 ollama pull llama3.2:1b
                └───────────┘  └─────────┘  └──────────┘  └─────────────┘
 ```
 
+## Project Structure
+
+```
+src/
+├── config.py               — centralized settings (pydantic-settings)
+├── exceptions.py           — typed exception hierarchy
+├── dependencies.py         — FastAPI dependency injection
+├── db/
+│   ├── base.py             — ORM models
+│   ├── factory.py          — make_database()
+│   └── interfaces/
+│       ├── base.py         — BaseDatabase ABC
+│       └── postgresql.py   — PostgreSQLDatabase implementation
+├── routers/
+│   ├── ask.py              — POST /ask, POST /ask/stream
+│   ├── health.py           — GET /health (typed per-service status)
+│   ├── papers.py           — GET /papers, GET /papers/{id}
+│   └── search.py           — POST /search (hybrid BM25 + dense)
+├── schemas/
+│   ├── api/                — request/response models (ask, health, papers, search)
+│   ├── arxiv/              — arXiv paper schemas
+│   ├── database/           — database config schemas
+│   ├── embeddings/         — Jina config schemas
+│   ├── indexing/           — chunk/index schemas
+│   └── pdf_parser/         — PDF parsing schemas
+└── services/
+    ├── arxiv/              — ArxivClient + factory
+    ├── cache/              — CacheClient + factory (Redis)
+    ├── jina/               — JinaClient + factory (embeddings)
+    ├── langfuse/           — LangfuseTracer + RAGTracer + factory
+    ├── ollama/             — OllamaClient + RAGPromptBuilder + factory
+    ├── pdf_parser/         — PDFProcessor + factory
+    └── qdrant/             — QdrantService + factory
+
+airflow/dags/
+└── arxiv_ingestion/
+    ├── common.py           — shared service initialization
+    ├── fetching.py         — fetch papers from arXiv → Postgres
+    ├── indexing.py         — download PDFs → chunk → embed → Qdrant
+    └── reporting.py        — log ingestion stats
+```
+
 ## How It Works
 
 **Ingestion pipeline** (runs daily via Airflow):
@@ -93,11 +136,12 @@ docker exec biochem-research-assistant-ollama-1 ollama pull llama3.2:1b
 5. Generate dense embeddings via Jina AI
 6. Index chunks (BM25 sparse + dense vectors) into Qdrant
 
-**Search** (`GET /papers/search`):
+**Search** (`POST /api/v1/search/`):
 - Encodes query with Jina AI → hybrid BM25 + dense search via Qdrant RRF fusion
 - Falls back to BM25-only if Jina is unreachable
+- Supports `min_score` filtering and offset-based pagination
 
-**Q&A** (`POST /ask`):
+**Q&A** (`POST /api/v1/ask`):
 1. Check Redis cache — return instantly if the same question was asked before
 2. Hybrid search → retrieve top-K relevant chunks
 3. Build a prompt with paper excerpts as context
@@ -126,12 +170,16 @@ Copy `.env.example` to `.env` and fill in:
 ## Common Commands
 
 ```bash
-make start    # build and start all services
-make stop     # stop all services
-make restart  # restart without rebuild
-make logs     # stream logs from all services
-make health   # check health of all 6 services
-make status   # show container status
+make start      # build and start all services
+make stop       # stop all services
+make restart    # restart without rebuild
+make logs       # stream logs from all services
+make health     # check health of all services (colored ✓/✗ per service)
+make status     # show container status
+make test       # run all tests
+make lint       # ruff check + mypy
+make format     # ruff format
+make test-cov   # tests with HTML coverage report
 
 # Backfill Qdrant after a full restart (data is wiped on make start)
 docker exec biochem-research-assistant-postgres-1 \
