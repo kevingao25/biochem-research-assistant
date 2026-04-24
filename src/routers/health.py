@@ -3,10 +3,9 @@ import logging
 from fastapi import APIRouter
 from sqlalchemy import text
 
-from src.dependencies import DatabaseDep, QdrantDep, SettingsDep
+from src.dependencies import DatabaseDep, OllamaDep, QdrantDep, SettingsDep
 from src.exceptions import OllamaConnectionError, OllamaException
 from src.schemas.api.health import HealthResponse, ServiceStatus
-from src.services.ollama.client import OllamaClient
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +17,7 @@ async def health_check(
     settings: SettingsDep,
     database: DatabaseDep,
     qdrant: QdrantDep,
+    ollama: OllamaDep,
 ) -> HealthResponse:
     """Comprehensive health check with per-service status."""
     services: dict = {}
@@ -40,6 +40,7 @@ async def health_check(
             message="Connected" if ok else "Not responding",
         )
         if not ok:
+            logger.warning("Qdrant health_check returned unhealthy")
             overall = "degraded"
     except Exception as e:
         services["qdrant"] = ServiceStatus(status="unhealthy", message=str(e))
@@ -47,7 +48,6 @@ async def health_check(
 
     # Ollama
     try:
-        ollama = OllamaClient(settings)
         result = await ollama.health_check()
         services["ollama"] = ServiceStatus(status=result["status"], message=result["message"])
         if result["status"] != "healthy":
