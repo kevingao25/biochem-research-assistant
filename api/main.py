@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app):
+    # Everything before `yield` runs at startup; everything after runs at shutdown.
+    # FastAPI calls this once and keeps the app alive between the two sections.
     logger.info("Starting Biochem Research Assistant API...")
 
     settings = get_settings()
