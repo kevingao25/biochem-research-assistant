@@ -30,6 +30,4 @@ class Paper(Base):
     pdf_processing_date = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(
-        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
-    )
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
