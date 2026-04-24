@@ -1,6 +1,9 @@
+import logging
 import time
 from contextlib import contextmanager
 from typing import Dict, List
+
+logger = logging.getLogger(__name__)
 
 from src.services.langfuse.client import LangfuseTracer
 
@@ -88,5 +91,5 @@ class RAGTracer:
                 "answer": response,
                 "total_duration_seconds": round(total_duration, 3),
             })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Langfuse end_request error: {e}")

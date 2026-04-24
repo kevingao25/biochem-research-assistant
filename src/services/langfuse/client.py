@@ -75,16 +75,6 @@ class LangfuseTracer:
         except Exception as e:
             logger.error(f"Error updating span: {e}")
 
-    def end_span(self, span, output: Optional[Any] = None):
-        if not span:
-            return
-        try:
-            if output is not None:
-                self.update_span(span, output=output)
-            span.end()
-        except Exception as e:
-            logger.error(f"Error ending span: {e}")
-
     def flush(self):
         if self.client:
             try:
