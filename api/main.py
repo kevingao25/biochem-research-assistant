@@ -5,7 +5,8 @@ from contextlib import asynccontextmanager
 import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
 
-from src.db.session import create_tables, make_engine, make_session_factory
+from src.db.interfaces.postgresql import PostgreSQLDatabase
+from src.schemas.database.config import PostgreSQLSettings
 from src.routers.ask import router as ask_router
 from src.routers.papers import router as papers_router
 from src.services.cache_client import CacheClient
@@ -22,10 +23,12 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Starting up...")
 
-    # PostgreSQL
-    engine = make_engine(os.environ["DATABASE_URL"])
-    app.state.session_factory = make_session_factory(engine)
-    create_tables(engine)
+    # PostgreSQL — Task 13 will store db directly; for now expose session_factory
+    # so dependencies.py (Task 9) can keep working unchanged
+    db = PostgreSQLDatabase(config=PostgreSQLSettings(database_url=os.environ["DATABASE_URL"]))
+    db.startup()
+    app.state.db = db
+    app.state.session_factory = db.session_factory
     logger.info("Database ready")
 
     # Qdrant — create collection if it doesn't exist yet
@@ -56,7 +59,7 @@ async def lifespan(app: FastAPI):
     # Teardown — flush traces and close connections cleanly
     app.state.langfuse.shutdown()
     await redis_client.aclose()
-    engine.dispose()
+    app.state.db.teardown()
     logger.info("Shutdown complete")
 
 

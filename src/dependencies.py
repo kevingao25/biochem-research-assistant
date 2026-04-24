@@ -3,7 +3,6 @@ from typing import Annotated, Generator
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
-from src.db.session import get_session
 from src.services.cache_client import CacheClient
 from src.services.jina_client import JinaClient
 from src.services.langfuse_client import LangfuseClient
@@ -12,8 +11,15 @@ from src.services.qdrant_client import QdrantService
 
 
 def get_db_session(request: Request) -> Generator[Session, None, None]:
-    with get_session(request.app.state.session_factory) as session:
+    # Task 9 will replace this with db.get_session() once main.py stores a BaseDatabase
+    session = request.app.state.session_factory()
+    try:
         yield session
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 def get_qdrant(request: Request) -> QdrantService:
