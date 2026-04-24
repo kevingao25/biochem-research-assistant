@@ -4,10 +4,10 @@ from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from src.services.cache.client import CacheClient
-from src.services.jina_client import JinaClient
+from src.services.jina.client import JinaClient
 from src.services.langfuse.client import LangfuseTracer
 from src.services.ollama.client import OllamaClient
-from src.services.qdrant_client import QdrantService
+from src.services.qdrant.client import QdrantService
 
 
 def get_db_session(request: Request) -> Generator[Session, None, None]:

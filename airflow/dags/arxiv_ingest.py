@@ -10,11 +10,11 @@ from airflow.sdk import dag, task
 from src.db.session import get_session, make_engine, make_session_factory
 from src.repositories.paper import PaperRepository
 from src.schemas.arxiv.paper import PaperCreate
-from src.services.arxiv_client import fetch_papers
+from src.services.arxiv.client import fetch_papers
 from src.services.chunker import TextChunker
-from src.services.jina_client import JinaClient
-from src.services.pdf_processor import PdfProcessor
-from src.services.qdrant_client import QdrantService
+from src.services.jina.client import JinaClient
+from src.services.pdf_parser.parser import PdfProcessor
+from src.services.qdrant.client import QdrantService
 
 logger = logging.getLogger(__name__)
 
