@@ -23,7 +23,7 @@ make start             # build and start all services
 make health            # verify all services are healthy
 
 # Pull the LLM model into Ollama on first run
-docker exec biochem-research-assistant-ollama-1 ollama pull llama3.2:1b
+docker compose exec ollama ollama pull llama3.2:1b
 ```
 
 ## Endpoints
@@ -170,6 +170,7 @@ Copy `.env.example` to `.env` and fill in:
 ## Common Commands
 
 ```bash
+make setup      # install Python dependencies (uv sync)
 make start      # build and start all services
 make stop       # stop all services
 make restart    # restart without rebuild
