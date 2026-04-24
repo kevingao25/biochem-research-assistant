@@ -1,4 +1,3 @@
-from functools import lru_cache
 from typing import TYPE_CHECKING, Annotated, Callable, Generator
 
 from fastapi import Depends, Request
@@ -15,11 +14,6 @@ from src.services.qdrant.client import QdrantService
 if TYPE_CHECKING:
     # docling is an optional heavy dependency; only imported for type checking
     from src.services.pdf_parser.parser import PDFProcessor
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
 
 
 def get_request_settings(request: Request) -> Settings:
@@ -74,3 +68,4 @@ OllamaDep     = Annotated[OllamaClient,  Depends(get_ollama)]
 CacheDep      = Annotated[CacheClient,   Depends(get_cache)]
 LangfuseDep   = Annotated[LangfuseTracer, Depends(get_langfuse)]
 ArxivDep      = Annotated[Callable,      Depends(get_arxiv)]
+# PDFParserDep omitted — docling not installed in dev; add when available
