@@ -23,7 +23,7 @@ def process_and_index_papers() -> dict:
     remain pdf_processed=False and are retried on the next daily run.
     """
     db = make_database()
-    qdrant = QdrantService(url=os.environ["QDRANT_URL"])
+    qdrant = QdrantService(url=os.environ["QDRANT__URL"])
     qdrant.setup_collection()
 
     processor = PDFProcessor()
