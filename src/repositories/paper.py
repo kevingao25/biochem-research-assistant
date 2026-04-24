@@ -1,4 +1,3 @@
-from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -19,15 +18,15 @@ class PaperRepository:
         self.session.refresh(db_paper)
         return db_paper
 
-    def get_by_arxiv_id(self, arxiv_id: str) -> Optional[Paper]:
+    def get_by_arxiv_id(self, arxiv_id: str) -> Paper | None:
         stmt = select(Paper).where(Paper.arxiv_id == arxiv_id)
         return self.session.scalar(stmt)
 
-    def get_by_id(self, paper_id: UUID) -> Optional[Paper]:
+    def get_by_id(self, paper_id: UUID) -> Paper | None:
         stmt = select(Paper).where(Paper.id == paper_id)
         return self.session.scalar(stmt)
 
-    def get_all(self, limit: int = 100, offset: int = 0) -> List[Paper]:
+    def get_all(self, limit: int = 100, offset: int = 0) -> list[Paper]:
         stmt = select(Paper).order_by(Paper.published_date.desc()).limit(limit).offset(offset)
         return list(self.session.scalars(stmt))
 
@@ -35,10 +34,10 @@ class PaperRepository:
         stmt = select(func.count(Paper.id))
         return self.session.scalar(stmt) or 0
 
-    def get_unprocessed(self, limit: int = 100, offset: int = 0) -> List[Paper]:
+    def get_unprocessed(self, limit: int = 100, offset: int = 0) -> list[Paper]:
         stmt = (
             select(Paper)
-            .where(Paper.pdf_processed == False)
+            .where(Paper.pdf_processed.is_(False))
             .order_by(Paper.published_date.desc())
             .limit(limit)
             .offset(offset)
@@ -58,17 +57,17 @@ class PaperRepository:
             return existing
         return self.create(paper_create)
 
-    def get_processed(self, limit: int = 100, offset: int = 0) -> List[Paper]:
+    def get_processed(self, limit: int = 100, offset: int = 0) -> list[Paper]:
         stmt = (
             select(Paper)
-            .where(Paper.pdf_processed == True)
+            .where(Paper.pdf_processed.is_(True))
             .order_by(Paper.pdf_processing_date.desc())
             .limit(limit)
             .offset(offset)
         )
         return list(self.session.scalars(stmt))
 
-    def get_papers_with_text(self, limit: int = 100, offset: int = 0) -> List[Paper]:
+    def get_papers_with_text(self, limit: int = 100, offset: int = 0) -> list[Paper]:
         stmt = (
             select(Paper)
             .where(Paper.raw_text.is_not(None))
@@ -81,7 +80,7 @@ class PaperRepository:
     def get_processing_stats(self) -> dict:
         # Quick overview of how far along PDF processing is
         total = self.get_count()
-        processed_stmt = select(func.count(Paper.id)).where(Paper.pdf_processed == True)
+        processed_stmt = select(func.count(Paper.id)).where(Paper.pdf_processed.is_(True))
         processed = self.session.scalar(processed_stmt) or 0
         text_stmt = select(func.count(Paper.id)).where(Paper.raw_text.is_not(None))
         with_text = self.session.scalar(text_stmt) or 0

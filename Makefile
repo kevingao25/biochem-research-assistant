@@ -1,30 +1,28 @@
-.PHONY: start stop restart logs status health build
+.PHONY: help start stop restart status logs health setup format lint test test-cov clean
 
-# Build and start all services in the background (-d = detached)
-start:
+help:
+	@echo "Available commands:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+start: ## Build and start all services
 	docker compose up --build -d
 
-# Stop all services (keeps volumes — your data is safe)
-stop:
+stop: ## Stop all services
 	docker compose down
 
-# Stop and start again (useful after config changes)
-restart:
+restart: ## Restart services without rebuild
 	docker compose restart
 
-# Stream logs from all services (Ctrl+C to exit)
-logs:
-	docker compose logs -f
-
-# Show the current status of each container
-status:
+status: ## Show container status
 	docker compose ps
 
-# Quick health check — prints a clean status summary
-health:
+logs: ## Stream logs from all services
+	docker compose logs -f
+
+health: ## Check all service health endpoints
 	@printf "%-12s %s\n" "Service" "Status"
 	@printf "%-12s %s\n" "-------" "------"
-	@curl -sf http://localhost:8000/health > /dev/null \
+	@curl -sf http://localhost:8000/api/v1/health > /dev/null \
 		&& printf "%-12s \033[32m✓ healthy\033[0m\n" "API" \
 		|| printf "%-12s \033[31m✗ not responding\033[0m\n" "API"
 	@curl -sf http://localhost:6333/healthz > /dev/null \
@@ -39,11 +37,27 @@ health:
 	@docker exec biochem-research-assistant-redis-1 redis-cli ping > /dev/null 2>&1 \
 		&& printf "%-12s \033[32m✓ healthy\033[0m\n" "Redis" \
 		|| printf "%-12s \033[31m✗ not responding\033[0m\n" "Redis"
-	@curl -sf http://localhost:5432 > /dev/null 2>&1; \
-		docker exec biochem-research-assistant-postgres-1 pg_isready -q 2>/dev/null \
+	@docker exec biochem-research-assistant-postgres-1 pg_isready -q 2>/dev/null \
 		&& printf "%-12s \033[32m✓ healthy\033[0m\n" "Postgres" \
 		|| printf "%-12s \033[31m✗ not responding\033[0m\n" "Postgres"
 
-# Build images without starting containers
-build:
-	docker compose build
+setup: ## Install Python dependencies
+	uv pip install -r api/requirements.txt -r requirements-dev.txt
+
+format: ## Format code with ruff
+	uv run ruff format src/ tests/ api/
+
+lint: ## Lint and type check
+	uv run ruff check --fix src/ tests/ api/
+	uv run mypy src/
+
+test: ## Run all tests
+	uv run pytest tests/ -v
+
+test-cov: ## Run tests with coverage report
+	uv run pytest tests/ --cov=src --cov-report=html
+	@echo "Coverage report: htmlcov/index.html"
+
+clean: ## Stop services and remove volumes
+	docker compose down -v
+	docker system prune -f

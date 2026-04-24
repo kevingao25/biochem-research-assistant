@@ -18,11 +18,11 @@ async def _noop_lifespan(app):
 def mocks():
     """One mock per injected service. Tests set return_value as needed."""
     return {
-        "qdrant": MagicMock(),     # search_hybrid / search are sync
-        "jina": AsyncMock(),       # embed_query is async
-        "ollama": AsyncMock(),     # generate / generate_stream are async
-        "cache": AsyncMock(),      # get / set are async
-        "langfuse": MagicMock(),   # trace / span are sync context managers
+        "qdrant": MagicMock(),  # search_hybrid / search are sync
+        "jina": AsyncMock(),  # embed_query is async
+        "ollama": AsyncMock(),  # generate / generate_stream are async
+        "cache": AsyncMock(),  # get / set are async
+        "langfuse": MagicMock(),  # trace / span are sync context managers
     }
 
 

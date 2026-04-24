@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List
 
 from pydantic import BaseModel, ConfigDict
 
@@ -9,9 +8,9 @@ from pydantic import BaseModel, ConfigDict
 class PaperResponse(BaseModel):
     arxiv_id: str
     title: str
-    authors: List[str]
+    authors: list[str]
     abstract: str
-    categories: List[str]
+    categories: list[str]
     published_date: datetime
     pdf_url: str
 
@@ -34,5 +33,5 @@ class SearchHit(BaseModel):
 class SearchResponse(BaseModel):
     query: str
     total: int
-    hits: List[SearchHit]
+    hits: list[SearchHit]
     search_mode: str  # "hybrid" or "bm25" (bm25 means Jina was unreachable)

@@ -1,19 +1,23 @@
 import json
 import logging
-from typing import AsyncIterator, List
+import time
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from src.dependencies import CacheDep, JinaDep, LangfuseDep, OllamaDep, QdrantDep
 from src.schemas.api.ask import AskRequest, AskResponse
+from src.services.langfuse.tracer import RAGTracer
+from src.services.ollama.prompts import RAGPromptBuilder
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/ask", tags=["ask"])
+ask_router = APIRouter(tags=["ask"])
+stream_router = APIRouter(tags=["stream"])
 
 
-def _build_user_message(query: str, chunks: List[dict]) -> str:
+def _build_user_message(query: str, chunks: list[dict]) -> str:
     """Format retrieved chunks + question into the user message for the LLM."""
     parts = ["### Context from Papers:\n"]
     for i, chunk in enumerate(chunks, 1):
@@ -24,9 +28,9 @@ def _build_user_message(query: str, chunks: List[dict]) -> str:
     return "\n".join(parts)
 
 
-def _extract_sources(chunks: List[dict]) -> List[str]:
+def _extract_sources(chunks: list[dict]) -> list[str]:
     """Build deduplicated arXiv PDF URLs from chunk metadata."""
-    seen = set()
+    seen: set = set()
     sources = []
     for chunk in chunks:
         arxiv_id = chunk.get("arxiv_id", "")
@@ -39,145 +43,197 @@ def _extract_sources(chunks: List[dict]) -> List[str]:
     return sources
 
 
-async def _retrieve_chunks(request: AskRequest, qdrant, jina) -> tuple[List[dict], str]:
-    """Run hybrid or BM25-only search. Returns (chunks, search_mode)."""
+async def _retrieve_chunks(
+    request: AskRequest,
+    qdrant,
+    jina,
+    rag_tracer: RAGTracer,
+    trace,
+) -> tuple[list[dict], list[str], str]:
+    """Retrieve chunks, build source URLs, return (chunks, sources, search_mode)."""
+    query_embedding = None
+    search_mode = "bm25"
+
     if request.use_hybrid:
-        try:
-            embedding = await jina.embed_query(request.query)
-            chunks = qdrant.search_hybrid(request.query, dense_embedding=embedding, limit=request.top_k)
-            return chunks, "hybrid"
-        except Exception as e:
-            logger.warning(f"Hybrid search failed, falling back to BM25: {e}")
+        with rag_tracer.trace_embedding(trace, request.query) as emb_span:
+            try:
+                query_embedding = await jina.embed_query(request.query)
+                search_mode = "hybrid"
+            except Exception as e:
+                logger.warning(f"Embedding failed, falling back to BM25: {e}")
+                if emb_span:
+                    rag_tracer.tracer.update_span(emb_span, {"success": False, "error": str(e)})
 
-    chunks = qdrant.search(request.query, limit=request.top_k)
-    return chunks, "bm25"
+    with rag_tracer.trace_search(trace, request.query, request.top_k) as search_span:
+        if query_embedding is not None:
+            raw_hits = qdrant.search_hybrid(request.query, dense_embedding=query_embedding, limit=request.top_k)
+        else:
+            raw_hits = qdrant.search(request.query, limit=request.top_k)
+            search_mode = "bm25"
+
+        chunks = []
+        seen_urls: set = set()
+        sources = []
+        arxiv_ids = []
+
+        for hit in raw_hits:
+            arxiv_id = hit.get("arxiv_id", "")
+            chunks.append({"arxiv_id": arxiv_id, "chunk_text": hit.get("chunk_text", "")})
+            if arxiv_id:
+                arxiv_ids.append(arxiv_id)
+                clean_id = arxiv_id.split("v")[0] if "v" in arxiv_id else arxiv_id
+                url = f"https://arxiv.org/pdf/{clean_id}.pdf"
+                if url not in seen_urls:
+                    sources.append(url)
+                    seen_urls.add(url)
+
+        rag_tracer.end_search(search_span, chunks, arxiv_ids, len(raw_hits))
+
+    return chunks, sources, search_mode
 
 
-@router.post("", response_model=AskResponse)
-async def ask(
+@ask_router.post("/ask", response_model=AskResponse)
+async def ask_question(
     request: AskRequest,
     qdrant: QdrantDep,
     jina: JinaDep,
     ollama: OllamaDep,
     cache: CacheDep,
     langfuse: LangfuseDep,
-):
+) -> AskResponse:
     """Answer a question using hybrid search + Ollama LLM."""
-    with langfuse.trace(query=request.query) as trace:
+    rag_tracer = RAGTracer(langfuse)
+    start_time = time.time()
 
-        # 1. Cache check — skip the whole pipeline if we've seen this exact request
-        with langfuse.span(trace, "cache_lookup") as s:
-            cached = await cache.get(request)
-            if s:
-                s.update(output={"hit": cached is not None})
-        if cached:
-            return cached
+    with rag_tracer.trace_request(request.query) as trace:
+        try:
+            # Cache check
+            if cache:
+                cached = await cache.find_cached_response(request)
+                if cached:
+                    return cached
 
-        # 2. Retrieve relevant chunks from Qdrant
-        with langfuse.span(trace, "search", {"query": request.query, "top_k": request.top_k}) as s:
-            chunks, search_mode = await _retrieve_chunks(request, qdrant, jina)
-            if s:
-                s.update(output={"chunks_found": len(chunks), "search_mode": search_mode})
+            chunks, sources, search_mode = await _retrieve_chunks(request, qdrant, jina, rag_tracer, trace)
 
-        if not chunks:
-            return AskResponse(
+            if not chunks:
+                response = AskResponse(
+                    query=request.query,
+                    answer="I couldn't find any relevant papers to answer your question. Try different keywords.",
+                    sources=[],
+                    chunks_used=0,
+                    search_mode=search_mode,
+                )
+                rag_tracer.end_request(trace, response.answer, time.time() - start_time)
+                return response
+
+            # Build prompt
+            with rag_tracer.trace_prompt_construction(trace, chunks) as prompt_span:
+                prompt_builder = RAGPromptBuilder()
+                final_prompt = prompt_builder.create_rag_prompt(request.query, chunks)
+                rag_tracer.end_prompt(prompt_span, final_prompt)
+
+            # Generate
+            with rag_tracer.trace_generation(trace, request.model, final_prompt) as gen_span:
+                rag_response = await ollama.generate_rag_answer(query=request.query, chunks=chunks, model=request.model)
+                answer = rag_response.get("answer", "Unable to generate answer")
+                rag_tracer.end_generation(gen_span, answer, request.model)
+
+            response = AskResponse(
                 query=request.query,
-                answer="I couldn't find any relevant papers to answer your question. Try rephrasing or using different keywords.",
-                sources=[],
-                chunks_used=0,
+                answer=answer,
+                sources=sources,
+                chunks_used=len(chunks),
                 search_mode=search_mode,
             )
+            rag_tracer.end_request(trace, answer, time.time() - start_time)
 
-        # 3. Build prompt and extract source URLs
-        user_message = _build_user_message(request.query, chunks)
-        sources = _extract_sources(chunks)
+            # Cache the result
+            if cache:
+                try:
+                    await cache.store_response(request, response)
+                except Exception as e:
+                    logger.warning(f"Cache store failed: {e}")
 
-        # 4. Generate answer with Ollama
-        with langfuse.span(trace, "generation", {"model": request.model, "chunks_used": len(chunks)}) as s:
-            try:
-                answer = await ollama.generate(user_message, model=request.model)
-            except Exception as e:
-                logger.error(f"Ollama generation failed: {e}")
-                raise HTTPException(status_code=503, detail="LLM service unavailable")
-            if s:
-                s.update(output={"answer_length": len(answer)})
+            return response
 
-        response = AskResponse(
-            query=request.query,
-            answer=answer,
-            sources=sources,
-            chunks_used=len(chunks),
-            search_mode=search_mode,
-        )
-
-        # 5. Cache for next time
-        await cache.set(request, response)
-
-        return response
+        except Exception as e:
+            logger.error(f"Ask error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
 
 
-# TODO: add Langfuse tracing to ask_stream — tracing a streaming response requires
-# keeping the trace open while tokens arrive, then closing it on the done event.
-# Needs a background task or a manual flush after the generator exhausts.
-@router.post("/stream")
-async def ask_stream(
+@stream_router.post("/stream")
+async def ask_question_stream(
     request: AskRequest,
     qdrant: QdrantDep,
     jina: JinaDep,
     ollama: OllamaDep,
     cache: CacheDep,
-):
-    """Stream the answer token-by-token using Server-Sent Events.
+    langfuse: LangfuseDep,
+) -> StreamingResponse:
+    """Stream the answer token-by-token using Server-Sent Events."""
 
-    Each event is a JSON object:
-      {"sources": [...], "chunks_used": N, "search_mode": "hybrid"}  ← sent first
-      {"chunk": "token "}                                              ← repeated
-      {"done": true}                                                   ← final event
-    """
     async def generate() -> AsyncIterator[str]:
-        # Serve cached answer by re-streaming word-by-word
-        cached = await cache.get(request)
-        if cached:
-            yield f"data: {json.dumps({'sources': cached.sources, 'chunks_used': cached.chunks_used, 'search_mode': cached.search_mode})}\n\n"
-            for word in cached.answer.split():
-                yield f"data: {json.dumps({'chunk': word + ' '})}\n\n"
-            yield f"data: {json.dumps({'done': True})}\n\n"
-            return
+        rag_tracer = RAGTracer(langfuse)
+        start_time = time.time()
 
-        chunks, search_mode = await _retrieve_chunks(request, qdrant, jina)
-        sources = _extract_sources(chunks)
+        with rag_tracer.trace_request(request.query) as trace:
+            try:
+                # Cache hit: re-stream word-by-word
+                if cache:
+                    cached = await cache.find_cached_response(request)
+                    if cached:
+                        yield f"data: {json.dumps({'sources': cached.sources, 'chunks_used': cached.chunks_used, 'search_mode': cached.search_mode})}\n\n"
+                        for word in cached.answer.split():
+                            yield f"data: {json.dumps({'chunk': word + ' '})}\n\n"
+                        yield f"data: {json.dumps({'answer': cached.answer, 'done': True})}\n\n"
+                        return
 
-        # Send metadata first so the client can show sources before the answer arrives
-        yield f"data: {json.dumps({'sources': sources, 'chunks_used': len(chunks), 'search_mode': search_mode})}\n\n"
+                chunks, sources, search_mode = await _retrieve_chunks(request, qdrant, jina, rag_tracer, trace)
 
-        if not chunks:
-            yield f"data: {json.dumps({'chunk': 'I could not find any relevant papers to answer your question.'})}\n\n"
-            yield f"data: {json.dumps({'done': True})}\n\n"
-            return
+                yield f"data: {json.dumps({'sources': sources, 'chunks_used': len(chunks), 'search_mode': search_mode})}\n\n"
 
-        user_message = _build_user_message(request.query, chunks)
-        full_answer = ""
+                if not chunks:
+                    yield f"data: {json.dumps({'answer': 'No relevant papers found.', 'done': True})}\n\n"
+                    return
 
-        try:
-            async for token in ollama.generate_stream(user_message, model=request.model):
-                full_answer += token
-                yield f"data: {json.dumps({'chunk': token})}\n\n"
-        except Exception as e:
-            logger.error(f"Ollama streaming failed: {e}")
-            yield f"data: {json.dumps({'error': 'LLM service unavailable'})}\n\n"
-            return
+                # Build prompt
+                with rag_tracer.trace_prompt_construction(trace, chunks) as prompt_span:
+                    final_prompt = RAGPromptBuilder().create_rag_prompt(request.query, chunks)
+                    rag_tracer.end_prompt(prompt_span, final_prompt)
 
-        yield f"data: {json.dumps({'done': True})}\n\n"
+                # Stream generation
+                with rag_tracer.trace_generation(trace, request.model, final_prompt) as gen_span:
+                    full_response = ""
+                    async for chunk in ollama.generate_rag_answer_stream(
+                        query=request.query, chunks=chunks, model=request.model
+                    ):
+                        if chunk.get("response"):
+                            text = chunk["response"]
+                            full_response += text
+                            yield f"data: {json.dumps({'chunk': text})}\n\n"
+                        if chunk.get("done", False):
+                            rag_tracer.end_generation(gen_span, full_response, request.model)
+                            yield f"data: {json.dumps({'answer': full_response, 'done': True})}\n\n"
+                            break
 
-        # Cache the full reconstructed answer after streaming completes
-        if full_answer:
-            await cache.set(request, AskResponse(
-                query=request.query,
-                answer=full_answer,
-                sources=sources,
-                chunks_used=len(chunks),
-                search_mode=search_mode,
-            ))
+                rag_tracer.end_request(trace, full_response, time.time() - start_time)
+
+                if cache and full_response:
+                    await cache.store_response(
+                        request,
+                        AskResponse(
+                            query=request.query,
+                            answer=full_response,
+                            sources=sources,
+                            chunks_used=len(chunks),
+                            search_mode=search_mode,
+                        ),
+                    )
+
+            except Exception as e:
+                logger.error(f"Streaming error: {e}")
+                rag_tracer.end_request(trace, "", time.time() - start_time)
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(
         generate(),

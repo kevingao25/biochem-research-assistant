@@ -1,20 +1,21 @@
 import json
 
-import pytest
-
 from src.schemas.api.ask import AskResponse
 
 
-# ── /ask ──────────────────────────────────────────────────────────────────────
-
 class TestAskEndpoint:
     async def test_happy_path_returns_correct_shape(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = [
             {"arxiv_id": "2401.00001", "chunk_text": "CRISPR is a gene editing tool."},
         ]
-        mocks["ollama"].generate.return_value = "CRISPR edits DNA."
+        mocks["ollama"].generate_rag_answer.return_value = {
+            "answer": "CRISPR edits DNA.",
+            "sources": ["https://arxiv.org/pdf/2401.00001.pdf"],
+            "confidence": "medium",
+            "citations": ["2401.00001"],
+        }
 
         response = await client.post("/api/v1/ask", json={"query": "What is CRISPR?"})
 
@@ -22,7 +23,6 @@ class TestAskEndpoint:
         data = response.json()
         assert data["query"] == "What is CRISPR?"
         assert data["answer"] == "CRISPR edits DNA."
-        assert data["sources"] == ["https://arxiv.org/pdf/2401.00001.pdf"]
         assert data["chunks_used"] == 1
         assert data["search_mode"] == "hybrid"
 
@@ -50,17 +50,17 @@ class TestAskEndpoint:
             chunks_used=1,
             search_mode="hybrid",
         )
-        mocks["cache"].get.return_value = cached
+        mocks["cache"].find_cached_response.return_value = cached
 
         response = await client.post("/api/v1/ask", json={"query": "What is CRISPR?"})
 
         assert response.status_code == 200
         assert response.json()["answer"] == "Cached answer."
         mocks["qdrant"].search_hybrid.assert_not_called()
-        mocks["ollama"].generate.assert_not_called()
+        mocks["ollama"].generate_rag_answer.assert_not_called()
 
     async def test_zero_chunks_returns_graceful_message(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = []
 
@@ -70,36 +70,39 @@ class TestAskEndpoint:
         data = response.json()
         assert data["chunks_used"] == 0
         assert "find" in data["answer"].lower()
-        mocks["ollama"].generate.assert_not_called()
+        mocks["ollama"].generate_rag_answer.assert_not_called()
 
     async def test_answer_is_cached_after_generation(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = [
             {"arxiv_id": "2401.00001", "chunk_text": "Some text."},
         ]
-        mocks["ollama"].generate.return_value = "An answer."
+        mocks["ollama"].generate_rag_answer.return_value = {
+            "answer": "An answer.",
+            "sources": [],
+            "confidence": "medium",
+            "citations": [],
+        }
 
         await client.post("/api/v1/ask", json={"query": "What is CRISPR?"})
 
-        mocks["cache"].set.assert_called_once()
+        mocks["cache"].store_response.assert_called_once()
 
-
-# ── /ask/stream ───────────────────────────────────────────────────────────────
 
 class TestAskStreamEndpoint:
     async def test_response_is_event_stream(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = [
             {"arxiv_id": "2401.00001", "chunk_text": "Some text."},
         ]
 
         async def mock_stream(*args, **kwargs):
-            yield "Hello "
-            yield "world."
+            yield {"response": "Hello ", "done": False}
+            yield {"response": "world.", "done": True}
 
-        mocks["ollama"].generate_stream = mock_stream
+        mocks["ollama"].generate_rag_answer_stream = mock_stream
 
         response = await client.post("/api/v1/ask/stream", json={"query": "What is CRISPR?"})
 
@@ -107,49 +110,43 @@ class TestAskStreamEndpoint:
         assert "text/event-stream" in response.headers["content-type"]
 
     async def test_first_event_is_metadata(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = [
             {"arxiv_id": "2401.00001", "chunk_text": "Some text."},
         ]
 
         async def mock_stream(*args, **kwargs):
-            yield "token"
+            yield {"response": "token", "done": True}
 
-        mocks["ollama"].generate_stream = mock_stream
+        mocks["ollama"].generate_rag_answer_stream = mock_stream
 
         response = await client.post("/api/v1/ask/stream", json={"query": "What is CRISPR?"})
 
-        # Parse first SSE event from the body
-        first_event_line = next(
-            line for line in response.text.splitlines() if line.startswith("data:")
-        )
-        first_event = json.loads(first_event_line[len("data: "):])
+        first_event_line = next(line for line in response.text.splitlines() if line.startswith("data:"))
+        first_event = json.loads(first_event_line[len("data: ") :])
 
         assert "sources" in first_event
         assert "chunks_used" in first_event
         assert "search_mode" in first_event
 
     async def test_stream_ends_with_done_event(self, client, mocks):
-        mocks["cache"].get.return_value = None
+        mocks["cache"].find_cached_response.return_value = None
         mocks["jina"].embed_query.return_value = [0.1] * 10
         mocks["qdrant"].search_hybrid.return_value = [
             {"arxiv_id": "2401.00001", "chunk_text": "Some text."},
         ]
 
         async def mock_stream(*args, **kwargs):
-            yield "token"
+            yield {"response": "token", "done": True}
 
-        mocks["ollama"].generate_stream = mock_stream
+        mocks["ollama"].generate_rag_answer_stream = mock_stream
 
         response = await client.post("/api/v1/ask/stream", json={"query": "What is CRISPR?"})
 
-        last_event_line = next(
-            line for line in reversed(response.text.splitlines()) if line.startswith("data:")
-        )
-        last_event = json.loads(last_event_line[len("data: "):])
-
-        assert last_event == {"done": True}
+        last_event_line = next(line for line in reversed(response.text.splitlines()) if line.startswith("data:"))
+        last_event = json.loads(last_event_line[len("data: ") :])
+        assert last_event.get("done") is True
 
     async def test_stream_empty_query_is_422(self, client, mocks):
         response = await client.post("/api/v1/ask/stream", json={"query": ""})

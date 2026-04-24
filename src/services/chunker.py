@@ -1,23 +1,32 @@
 import logging
-from typing import List, Optional, Set
 
 from src.schemas.indexing.models import ChunkMetadata, TextChunk
 from src.schemas.pdf_parser.models import PaperSection
 
 logger = logging.getLogger(__name__)
 
-CHUNK_SIZE = 600      # target words per chunk (sliding window)
-OVERLAP = 100         # words shared between adjacent chunks
-MIN_CHUNK = 100       # discard chunks smaller than this
-MAX_SECTION = 900     # sections larger than this get split; smaller ones stay whole
+CHUNK_SIZE = 600  # target words per chunk (sliding window)
+OVERLAP = 100  # words shared between adjacent chunks
+MIN_CHUNK = 100  # discard chunks smaller than this
+MAX_SECTION = 900  # sections larger than this get split; smaller ones stay whole
 
 # Section titles that contain no scientific content worth indexing.
-_NOISE_SECTIONS: Set[str] = {
-    "references", "bibliography", "acknowledgements", "acknowledgments",
-    "funding", "conflicts of interest", "conflict of interest",
-    "author contributions", "data availability", "ethics statement",
-    "supplementary materials", "supplementary material", "appendix",
-    "declaration of competing interest", "declarations",
+_NOISE_SECTIONS: set[str] = {
+    "references",
+    "bibliography",
+    "acknowledgements",
+    "acknowledgments",
+    "funding",
+    "conflicts of interest",
+    "conflict of interest",
+    "author contributions",
+    "data availability",
+    "ethics statement",
+    "supplementary materials",
+    "supplementary material",
+    "appendix",
+    "declaration of competing interest",
+    "declarations",
 }
 
 
@@ -35,9 +44,9 @@ class TextChunker:
         abstract: str,
         arxiv_id: str,
         paper_id: str,
-        sections: Optional[List[PaperSection]] = None,
-        raw_text: Optional[str] = None,
-    ) -> List[TextChunk]:
+        sections: list[PaperSection] | None = None,
+        raw_text: str | None = None,
+    ) -> list[TextChunk]:
         """Main entry point. Tries section-based chunking first, falls back to raw text.
 
         Every chunk gets a header (title + abstract) prepended so search results
@@ -60,10 +69,10 @@ class TextChunker:
     def _chunk_by_sections(
         self,
         header: str,
-        sections: List[PaperSection],
+        sections: list[PaperSection],
         arxiv_id: str,
         paper_id: str,
-    ) -> List[TextChunk]:
+    ) -> list[TextChunk]:
         """Chunk using document structure. Three cases per section:
 
         - Too small (<100 words): hold in a pending buffer and combine with
@@ -72,8 +81,8 @@ class TextChunker:
         - Too large (>900 words): split with a sliding window, keeping the
           section title on each sub-chunk so we know where it came from.
         """
-        chunks: List[TextChunk] = []
-        pending: List[PaperSection] = []   # small sections waiting to be combined
+        chunks: list[TextChunk] = []
+        pending: list[PaperSection] = []  # small sections waiting to be combined
 
         abstract_words = set(header.lower().split())
 
@@ -110,7 +119,7 @@ class TextChunker:
         """Return True for sections that add no retrievable scientific content."""
         return title.strip().lower() in _NOISE_SECTIONS
 
-    def _is_duplicate_abstract(self, content: str, abstract_words: Set[str]) -> bool:
+    def _is_duplicate_abstract(self, content: str, abstract_words: set[str]) -> bool:
         """Return True if this section is mostly a repeat of the abstract.
 
         Some PDFs embed the abstract again as the first body section.
@@ -125,11 +134,11 @@ class TextChunker:
     def _flush_pending(
         self,
         header: str,
-        sections: List[PaperSection],
+        sections: list[PaperSection],
         base_index: int,
         arxiv_id: str,
         paper_id: str,
-    ) -> List[TextChunk]:
+    ) -> list[TextChunk]:
         """Merge accumulated small sections into a single chunk.
 
         Small sections (e.g. Acknowledgements, Data Availability) are too short
@@ -141,11 +150,11 @@ class TextChunker:
         title = " + ".join(s.title for s in sections[:3])
         return [self._make_chunk(text, title, base_index, arxiv_id, paper_id)]
 
-    def _chunk_text(self, text: str, arxiv_id: str, paper_id: str) -> List[TextChunk]:
+    def _chunk_text(self, text: str, arxiv_id: str, paper_id: str) -> list[TextChunk]:
         """Fallback: chunk raw text with no section awareness."""
         return self._sliding_window(text, arxiv_id, paper_id, base_index=0)
 
-    def _sliding_window(self, text: str, arxiv_id: str, paper_id: str, base_index: int) -> List[TextChunk]:
+    def _sliding_window(self, text: str, arxiv_id: str, paper_id: str, base_index: int) -> list[TextChunk]:
         """Split text into overlapping windows of CHUNK_SIZE words.
 
         Each window advances by (CHUNK_SIZE - OVERLAP) words, so consecutive
@@ -154,7 +163,7 @@ class TextChunker:
         information loss at the edges.
         """
         words = text.split()
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         pos = 0
         idx = base_index
 
@@ -176,7 +185,7 @@ class TextChunker:
     def _make_chunk(
         self,
         text: str,
-        section_title: Optional[str],
+        section_title: str | None,
         index: int,
         arxiv_id: str,
         paper_id: str,

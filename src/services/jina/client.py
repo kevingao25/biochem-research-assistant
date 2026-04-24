@@ -1,5 +1,4 @@
 import logging
-from typing import List
 
 import httpx
 
@@ -8,7 +7,7 @@ logger = logging.getLogger(__name__)
 JINA_API_URL = "https://api.jina.ai/v1/embeddings"
 JINA_MODEL = "jina-embeddings-v3"
 DIMENSIONS = 1024
-BATCH_SIZE = 100   # Jina recommends batching; free tier handles 100 texts per call
+BATCH_SIZE = 100  # Jina recommends batching; free tier handles 100 texts per call
 
 
 class JinaClient:
@@ -25,9 +24,9 @@ class JinaClient:
             "Content-Type": "application/json",
         }
 
-    async def _embed(self, texts: List[str], task: str) -> List[List[float]]:
+    async def _embed(self, texts: list[str], task: str) -> list[list[float]]:
         """Call the Jina API and return a list of embedding vectors."""
-        embeddings: List[List[float]] = []
+        embeddings: list[list[float]] = []
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             for i in range(0, len(texts), BATCH_SIZE):
@@ -48,12 +47,12 @@ class JinaClient:
 
         return embeddings
 
-    async def embed_passages(self, texts: List[str]) -> List[List[float]]:
+    async def embed_passages(self, texts: list[str]) -> list[list[float]]:
         """Embed text passages for indexing into Qdrant."""
         logger.info(f"Embedding {len(texts)} passages")
         return await self._embed(texts, task="retrieval.passage")
 
-    async def embed_query(self, query: str) -> List[float]:
+    async def embed_query(self, query: str) -> list[float]:
         """Embed a single search query."""
         results = await self._embed([query], task="retrieval.query")
         return results[0]
