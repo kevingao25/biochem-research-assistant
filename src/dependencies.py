@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from src.services.cache_client import CacheClient
 from src.services.jina_client import JinaClient
 from src.services.langfuse_client import LangfuseClient
-from src.services.ollama_client import OllamaClient
+from src.services.ollama.client import OllamaClient
 from src.services.qdrant_client import QdrantService
 
 

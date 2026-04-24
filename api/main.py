@@ -12,7 +12,7 @@ from src.routers.papers import router as papers_router
 from src.services.cache_client import CacheClient
 from src.services.jina_client import JinaClient
 from src.services.langfuse_client import LangfuseClient
-from src.services.ollama_client import OllamaClient
+from src.services.ollama.client import OllamaClient
 from src.services.qdrant_client import QdrantService
 
 logging.basicConfig(level=logging.INFO)
@@ -42,7 +42,8 @@ async def lifespan(app: FastAPI):
     logger.info("Jina client ready")
 
     # Ollama — local LLM for question answering
-    app.state.ollama = OllamaClient(url=os.environ["OLLAMA_URL"])
+    from src.config import get_settings
+    app.state.ollama = OllamaClient(get_settings())
     logger.info("Ollama client ready")
 
     # Redis — exact-match answer cache
