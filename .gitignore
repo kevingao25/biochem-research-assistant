@@ -7,6 +7,8 @@ __pycache__/
 *.pyo
 .venv/
 *.egg-info/
+.coverage
+htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/

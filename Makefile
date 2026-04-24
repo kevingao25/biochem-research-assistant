@@ -34,10 +34,10 @@ health: ## Check all service health endpoints
 	@curl -sf http://localhost:11434/api/version > /dev/null \
 		&& printf "%-12s \033[32m✓ healthy\033[0m\n" "Ollama" \
 		|| printf "%-12s \033[31m✗ not responding\033[0m\n" "Ollama"
-	@docker exec biochem-research-assistant-redis-1 redis-cli ping > /dev/null 2>&1 \
+	@docker compose exec -T redis redis-cli ping > /dev/null 2>&1 \
 		&& printf "%-12s \033[32m✓ healthy\033[0m\n" "Redis" \
 		|| printf "%-12s \033[31m✗ not responding\033[0m\n" "Redis"
-	@docker exec biochem-research-assistant-postgres-1 pg_isready -q 2>/dev/null \
+	@docker compose exec -T postgres pg_isready -q 2>/dev/null \
 		&& printf "%-12s \033[32m✓ healthy\033[0m\n" "Postgres" \
 		|| printf "%-12s \033[31m✗ not responding\033[0m\n" "Postgres"
 

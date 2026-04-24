@@ -14,7 +14,6 @@ from src.services.cache.factory import make_cache_client
 from src.services.jina.factory import make_jina_client
 from src.services.langfuse.factory import make_langfuse_tracer
 from src.services.ollama.factory import make_ollama_client
-from src.services.pdf_parser.factory import make_pdf_parser_service
 from src.services.qdrant.factory import make_qdrant_client
 
 logging.basicConfig(
@@ -52,8 +51,7 @@ async def lifespan(app):
     logger.info("Langfuse ready")
 
     app.state.arxiv = make_arxiv_client()
-    app.state.pdf_parser = make_pdf_parser_service()
-    logger.info("ArXiv client and PDF parser ready")
+    logger.info("ArXiv client ready")
 
     logger.info("API ready")
     yield

@@ -93,8 +93,8 @@ services:
       AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY}
       AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
       PYTHONPATH: /opt/airflow
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      QDRANT_URL: http://qdrant:6333
+      POSTGRES_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      QDRANT__URL: http://qdrant:6333
       JINA_API_KEY: ${JINA_API_KEY}
     volumes:
       - ./airflow/dags:/opt/airflow/dags
@@ -119,15 +119,14 @@ services:
       context: .
       dockerfile: api/Dockerfile
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      QDRANT_URL: http://qdrant:6333
-      OLLAMA_URL: http://ollama:11434
-      API_SECRET_KEY: ${API_SECRET_KEY}
+      POSTGRES_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      QDRANT__URL: http://qdrant:6333
+      OLLAMA_HOST: http://ollama:11434
       JINA_API_KEY: ${JINA_API_KEY}
-      REDIS_URL: ${REDIS_URL}
-      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
-      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
-      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL}
+      REDIS__URL: ${REDIS_URL}
+      LANGFUSE__PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE__SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE__HOST: ${LANGFUSE_BASE_URL}
     ports:
       - "8000:8000"
     healthcheck:
