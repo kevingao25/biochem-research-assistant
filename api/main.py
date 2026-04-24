@@ -11,7 +11,7 @@ from src.routers.ask import router as ask_router
 from src.routers.papers import router as papers_router
 from src.services.cache_client import CacheClient
 from src.services.jina_client import JinaClient
-from src.services.langfuse_client import LangfuseClient
+from src.services.langfuse.factory import make_langfuse_tracer
 from src.services.ollama.client import OllamaClient
 from src.services.qdrant_client import QdrantService
 
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     logger.info("Cache ready")
 
     # Langfuse — LLM observability (no-op if keys are not set)
-    app.state.langfuse = LangfuseClient()
+    app.state.langfuse = make_langfuse_tracer()
     logger.info("Langfuse ready")
 
     yield
