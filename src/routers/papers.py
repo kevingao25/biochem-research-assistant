@@ -17,10 +17,10 @@ router = APIRouter(prefix="/papers", tags=["papers"])
 # a request to /papers/search would match it with arxiv_id="search".
 @router.get("/search", response_model=SearchResponse)
 def search_papers(
+    qdrant: QdrantDep,
+    jina: JinaDep,
     q: str = Query(..., description="Search query"),
     limit: int = Query(10, ge=1, le=50),
-    qdrant: QdrantDep = None,
-    jina: JinaDep = None,
 ):
     """Hybrid BM25 + dense search using Qdrant native RRF fusion.
 
@@ -46,7 +46,7 @@ def search_papers(
 
 @router.get("", response_model=list[PaperResponse])
 def list_papers(
-    session: SessionDep = None,
+    session: SessionDep,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
@@ -56,7 +56,7 @@ def list_papers(
 
 
 @router.get("/{arxiv_id}", response_model=PaperResponse)
-def get_paper(arxiv_id: str, session: SessionDep = None):
+def get_paper(arxiv_id: str, session: SessionDep):
     """Fetch a single paper by its arXiv ID."""
     repo = PaperRepository(session)
     paper = repo.get_by_arxiv_id(arxiv_id)

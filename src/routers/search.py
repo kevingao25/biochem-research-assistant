@@ -62,13 +62,15 @@ async def hybrid_search(
         if request.min_score > 0.0:
             hits = [h for h in hits if h.score >= request.min_score]
 
-        return SearchResponse(
-            query=request.query,
-            total=len(hits),
-            hits=hits,
-            size=request.size,
-            from_=request.from_,
-            search_mode=search_mode,
+        return SearchResponse.model_validate(
+            {
+                "query": request.query,
+                "total": len(hits),
+                "hits": hits,
+                "size": request.size,
+                "from": request.from_,
+                "search_mode": search_mode,
+            }
         )
 
     except HTTPException:

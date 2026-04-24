@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 from datetime import timedelta
+from typing import cast
 
 import redis
 
@@ -29,7 +30,7 @@ class CacheClient:
 
     async def find_cached_response(self, request: AskRequest) -> AskResponse | None:
         try:
-            cached = self.redis.get(self._cache_key(request))
+            cached = cast(str | None, self.redis.get(self._cache_key(request)))
             if cached:
                 return AskResponse(**json.loads(cached))
             return None

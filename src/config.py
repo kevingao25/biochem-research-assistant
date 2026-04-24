@@ -1,12 +1,16 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).parent.parent
 ENV_FILE_PATH = PROJECT_ROOT / ".env"
+
+
+def env_field[T](default: T, *aliases: str) -> T:
+    return cast(T, Field(default, validation_alias=AliasChoices(*aliases)))
 
 
 class BaseConfigSettings(BaseSettings):
@@ -76,7 +80,7 @@ class QdrantSettings(BaseConfigSettings):
         case_sensitive=False,
     )
 
-    url: str = Field("http://localhost:6333", validation_alias=AliasChoices("QDRANT__URL", "QDRANT_URL"))
+    url: str = env_field("http://localhost:6333", "QDRANT__URL", "QDRANT_URL")
     collection_name: str = "papers_chunks"
     vector_dimension: int = 1024
     sparse_model_name: str = "Qdrant/bm25"
@@ -91,12 +95,9 @@ class LangfuseSettings(BaseConfigSettings):
         case_sensitive=False,
     )
 
-    public_key: str = Field("", validation_alias=AliasChoices("LANGFUSE__PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY"))
-    secret_key: str = Field("", validation_alias=AliasChoices("LANGFUSE__SECRET_KEY", "LANGFUSE_SECRET_KEY"))
-    host: str = Field(
-        "https://cloud.langfuse.com",
-        validation_alias=AliasChoices("LANGFUSE__HOST", "LANGFUSE_BASE_URL"),
-    )
+    public_key: str = env_field("", "LANGFUSE__PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
+    secret_key: str = env_field("", "LANGFUSE__SECRET_KEY", "LANGFUSE_SECRET_KEY")
+    host: str = env_field("https://cloud.langfuse.com", "LANGFUSE__HOST", "LANGFUSE_BASE_URL")
     enabled: bool = True
     flush_at: int = 15
     flush_interval: float = 1.0
@@ -112,27 +113,26 @@ class RedisSettings(BaseConfigSettings):
         case_sensitive=False,
     )
 
-    url: str = Field("redis://localhost:6379", validation_alias=AliasChoices("REDIS__URL", "REDIS_URL"))
+    url: str = env_field("redis://localhost:6379", "REDIS__URL", "REDIS_URL")
     ttl_hours: int = 24
 
 
 class Settings(BaseConfigSettings):
     app_version: str = "0.1.0"
-    debug: bool = Field(True, validation_alias="APP_DEBUG")
-    environment: Literal["development", "staging", "production"] = Field(
-        "development", validation_alias="APP_ENVIRONMENT"
-    )
+    debug: bool = env_field(True, "APP_DEBUG")
+    environment: Literal["development", "staging", "production"] = env_field("development", "APP_ENVIRONMENT")
     service_name: str = "biochem-rag-api"
 
-    postgres_database_url: str = Field(
+    postgres_database_url: str = env_field(
         "postgresql://biochem:biochem@localhost:5432/biochem_research",
-        validation_alias=AliasChoices("POSTGRES_DATABASE_URL", "DATABASE_URL"),
+        "POSTGRES_DATABASE_URL",
+        "DATABASE_URL",
     )
     postgres_echo_sql: bool = False
     postgres_pool_size: int = 20
     postgres_max_overflow: int = 0
 
-    ollama_host: str = Field("http://localhost:11434", validation_alias=AliasChoices("OLLAMA_HOST", "OLLAMA_URL"))
+    ollama_host: str = env_field("http://localhost:11434", "OLLAMA_HOST", "OLLAMA_URL")
     ollama_model: str = "llama3.2:1b"
     ollama_timeout: int = 300
 

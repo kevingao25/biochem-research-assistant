@@ -49,9 +49,9 @@ class PDFProcessor:
         result = self._converter.convert(str(pdf_path))
         doc = result.document
 
-        sections = []
+        sections: list[PaperSection] = []
         current_title = "Content"
-        current_text_parts = []
+        current_text_parts: list[str] = []
 
         for item, _level in doc.iterate_items():
             if isinstance(item, SectionHeaderItem):

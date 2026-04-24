@@ -41,24 +41,36 @@ class LangfuseTracer:
         if not self.client:
             yield None
             return
+        trace_metadata = dict(metadata or {})
+        if user_id:
+            trace_metadata["user_id"] = user_id
+        if session_id:
+            trace_metadata["session_id"] = session_id
         try:
-            trace = self.client.trace(
+            trace = self.client.start_observation(
                 name="rag_request",
+                as_type="span",
                 input={"query": query},
-                metadata=metadata or {},
-                user_id=user_id,
-                session_id=session_id,
+                metadata=trace_metadata,
             )
-            yield trace
         except Exception as e:
             logger.error(f"Error creating Langfuse trace: {e}")
             yield None
+            return
+
+        try:
+            yield trace
+        finally:
+            try:
+                trace.end()
+            except Exception as e:
+                logger.error(f"Error ending Langfuse trace: {e}")
 
     def create_span(self, trace, name: str, input_data: dict[str, Any] | None = None):
         if not trace or not self.client:
             return None
         try:
-            return self.client.span(trace_id=trace.trace_id, name=name, input=input_data)
+            return trace.start_observation(name=name, as_type="span", input=input_data)
         except Exception as e:
             logger.error(f"Error creating span {name}: {e}")
             return None

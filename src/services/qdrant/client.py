@@ -56,7 +56,7 @@ class QdrantService:
 
     def index_chunk(self, chunk: TextChunk, dense_embedding: list[float] | None = None) -> None:
         """Index a single text chunk with BM25 sparse vector and optional dense embedding."""
-        sparse_embedding = next(self.encoder.embed([chunk.text]))
+        sparse_embedding = next(iter(self.encoder.embed([chunk.text])))
 
         # Deterministic UUID from arxiv_id + chunk_index so re-indexing is idempotent.
         point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{chunk.arxiv_id}_{chunk.metadata.chunk_index}"))
@@ -97,7 +97,7 @@ class QdrantService:
 
     def search(self, query: str, limit: int = 10) -> list[dict]:
         """BM25 keyword search over chunk text."""
-        query_embedding = next(self.encoder.query_embed(query))
+        query_embedding = next(iter(self.encoder.query_embed(query)))
         results = self.client.query_points(
             collection_name=COLLECTION,
             query=models.SparseVector(
@@ -115,7 +115,7 @@ class QdrantService:
         Qdrant fetches the top 20 from each index independently (prefetch),
         then merges them with Reciprocal Rank Fusion before returning `limit` results.
         """
-        query_sparse = next(self.encoder.query_embed(query))
+        query_sparse = next(iter(self.encoder.query_embed(query)))
 
         results = self.client.query_points(
             collection_name=COLLECTION,
