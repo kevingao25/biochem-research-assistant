@@ -14,6 +14,7 @@ A production RAG system that ingests biochemistry papers from arXiv, indexes the
 | Redis      | 7.4.0    | Exact-match answer cache            |
 | Jina AI    | cloud    | Dense embeddings (jina-embeddings-v3)|
 | Langfuse   | cloud    | LLM observability and tracing       |
+| LangGraph  | 1.1.9    | Agentic RAG workflow orchestration  |
 
 ## Quick Start
 
@@ -143,15 +144,22 @@ airflow/dags/
 **Search** (`POST /api/v1/search/`):
 - Encodes query with Jina AI → hybrid BM25 + dense search via Qdrant RRF fusion
 - Falls back to BM25-only if Jina is unreachable
-- Supports `min_score` filtering and offset-based pagination
+- Supports category filtering, `min_score` filtering, latest-paper sorting, and offset-based pagination
+- Requires Qdrant chunks indexed after the filter-payload change to return title/authors/category/date metadata
 
 **Q&A** (`POST /api/v1/ask`):
 1. Check Redis cache — return instantly if the same question was asked before
-2. Hybrid search → retrieve top-K relevant chunks
+2. Hybrid search → retrieve top-K relevant chunks, optionally filtered by arXiv category
 3. Build a prompt with paper excerpts as context
 4. Call Ollama (local LLM) → grounded answer with arXiv citations
 5. Cache the answer in Redis for next time
 6. Trace all steps in Langfuse for observability
+
+**Agentic Q&A** (`POST /api/v1/ask-agentic`):
+1. Runs a LangGraph workflow with explicit guardrail, retrieval, grading, optional query rewrite, and answer nodes
+2. Uses the same Qdrant BM25 + dense search stack as standard Q&A
+3. Returns `reasoning_steps`, `retrieval_attempts`, `rewritten_query`, and `trace_id`
+4. Use `POST /api/v1/feedback` with the returned `trace_id` to record a `user-feedback` score in Langfuse
 
 ## Environment Variables
 
@@ -164,6 +172,8 @@ Copy `.env.example` to `.env` and fill in:
 | `LANGFUSE_SECRET_KEY` | [cloud.langfuse.com](https://cloud.langfuse.com) |
 | `LANGFUSE_BASE_URL` | `https://cloud.langfuse.com` |
 | `REDIS_URL` | `redis://redis:6379` (local Docker) |
+| `AGENT__MAX_RETRIEVAL_ATTEMPTS` | `2` by default |
+| `AGENT__GUARDRAIL_ENABLED` | `true` by default |
 
 ## arXiv Categories Ingested
 
@@ -186,8 +196,8 @@ make lint       # ruff check + mypy
 make format     # ruff format
 make test-cov   # tests with HTML coverage report
 
-# Backfill Qdrant after a full restart (data is wiped on make start)
+# Reindex Qdrant after a full restart or payload/filter schema change
 docker exec biochem-research-assistant-postgres-1 \
   psql -U biochem -d biochem_research -c "UPDATE papers SET pdf_processed=false;"
-# Then trigger the DAG from the Airflow UI at http://localhost:8080
+# Then trigger arxiv_ingest from the Airflow UI at http://localhost:8080
 ```
