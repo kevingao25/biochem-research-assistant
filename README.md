@@ -32,6 +32,7 @@ docker compose exec ollama ollama pull llama3.2:1b
 |-----|-------------|
 | `POST /api/v1/ask` | Ask a question — returns a grounded answer with citations |
 | `POST /api/v1/ask/stream` | Same but streams the answer token-by-token (SSE) |
+| `POST /api/v1/ask-agentic` | Adaptive LangGraph RAG with guardrail, grading, and query rewriting |
 | `POST /api/v1/search/` | Hybrid BM25 + semantic search over paper chunks |
 | `GET /api/v1/papers` | List recently ingested papers |
 | `GET /api/v1/papers/{arxiv_id}` | Get a single paper by arXiv ID |
@@ -99,6 +100,7 @@ src/
 │       └── postgresql.py   — PostgreSQLDatabase implementation
 ├── routers/
 │   ├── ask.py              — POST /ask, POST /ask/stream
+│   ├── agentic_ask.py      — POST /ask-agentic
 │   ├── health.py           — GET /health (typed per-service status)
 │   ├── papers.py           — GET /papers, GET /papers/{id}
 │   └── search.py           — POST /search (hybrid BM25 + dense)
@@ -111,6 +113,7 @@ src/
 │   └── pdf_parser/         — PDF parsing schemas
 └── services/
     ├── arxiv/              — ArxivClient + factory
+    ├── agents/             — LangGraph agentic RAG workflow
     ├── cache/              — CacheClient + factory (Redis)
     ├── jina/               — JinaClient + factory (embeddings)
     ├── langfuse/           — LangfuseTracer + RAGTracer + factory

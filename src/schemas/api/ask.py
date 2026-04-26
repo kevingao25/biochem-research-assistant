@@ -19,3 +19,9 @@ class AskResponse(BaseModel):
     sources: list[str]  # arXiv PDF URLs of papers the answer draws from
     chunks_used: int  # how many chunks were passed to the LLM
     search_mode: str  # "hybrid" or "bm25"
+
+
+class AgenticAskResponse(AskResponse):
+    reasoning_steps: list[str]
+    retrieval_attempts: int
+    rewritten_query: str | None = None

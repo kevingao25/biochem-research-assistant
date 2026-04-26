@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from src.config import Settings
 from src.db.interfaces.base import BaseDatabase
+from src.services.agents.agentic_rag import AgenticRAGService
 from src.services.arxiv.client import ArxivClient
 from src.services.cache.client import CacheClient
 from src.services.jina.client import JinaClient
@@ -55,6 +56,10 @@ def get_arxiv(request: Request) -> ArxivClient:
     return request.app.state.arxiv
 
 
+def get_agentic_rag(request: Request) -> AgenticRAGService:
+    return request.app.state.agentic_rag
+
+
 def get_pdf_parser(request: Request) -> "PDFProcessor":
     return request.app.state.pdf_parser
 
@@ -69,4 +74,5 @@ OllamaDep = Annotated[OllamaClient, Depends(get_ollama)]
 CacheDep = Annotated[CacheClient | None, Depends(get_cache)]
 LangfuseDep = Annotated[LangfuseTracer, Depends(get_langfuse)]
 ArxivDep = Annotated[ArxivClient, Depends(get_arxiv)]
+AgenticRAGDep = Annotated[AgenticRAGService, Depends(get_agentic_rag)]
 # PDFParserDep omitted — docling not installed in dev; add when available

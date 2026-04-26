@@ -117,6 +117,19 @@ class RedisSettings(BaseConfigSettings):
     ttl_hours: int = 24
 
 
+class AgentSettings(BaseConfigSettings):
+    model_config = SettingsConfigDict(
+        env_file=[".env", str(ENV_FILE_PATH)],
+        env_prefix="AGENT__",
+        extra="ignore",
+        frozen=True,
+        case_sensitive=False,
+    )
+
+    max_retrieval_attempts: int = 2
+    guardrail_enabled: bool = True
+
+
 class Settings(BaseConfigSettings):
     app_version: str = "0.1.0"
     debug: bool = env_field(True, "APP_DEBUG")
@@ -144,6 +157,7 @@ class Settings(BaseConfigSettings):
     qdrant: QdrantSettings = Field(default_factory=QdrantSettings)
     langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
+    agent: AgentSettings = Field(default_factory=AgentSettings)
 
     @field_validator("postgres_database_url")
     @classmethod

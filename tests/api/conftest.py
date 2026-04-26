@@ -5,7 +5,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from api.main import app
-from src.dependencies import get_cache, get_jina, get_langfuse, get_ollama, get_qdrant
+from src.dependencies import get_agentic_rag, get_cache, get_jina, get_langfuse, get_ollama, get_qdrant
 
 
 @asynccontextmanager
@@ -23,6 +23,7 @@ def mocks():
         "ollama": AsyncMock(),  # generate / generate_stream are async
         "cache": AsyncMock(),  # get / set are async
         "langfuse": MagicMock(),  # trace / span are sync context managers
+        "agentic_rag": AsyncMock(),  # ask is async
     }
 
 
@@ -36,6 +37,7 @@ async def client(mocks):
         get_ollama: lambda: mocks["ollama"],
         get_cache: lambda: mocks["cache"],
         get_langfuse: lambda: mocks["langfuse"],
+        get_agentic_rag: lambda: mocks["agentic_rag"],
     }
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
