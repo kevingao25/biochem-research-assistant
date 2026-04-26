@@ -23,8 +23,9 @@ airflow/*.pid
 # Session handoff
 PROGRESS.md
 
-# Claude
+# Coding Agent
 CLAUDE.md
+AGENTS.md
 
 # Docs
 docs/**
