@@ -75,9 +75,15 @@ async def _retrieve_chunks(
                 request.query,
                 dense_embedding=query_embedding,
                 limit=request.top_k,
+                categories=request.categories,
             )
         else:
-            raw_hits = await run_in_threadpool(qdrant.search, request.query, limit=request.top_k)
+            raw_hits = await run_in_threadpool(
+                qdrant.search,
+                request.query,
+                limit=request.top_k,
+                categories=request.categories,
+            )
             search_mode = "bm25"
 
         chunks = []
@@ -116,9 +122,6 @@ async def ask_question(
 
     with rag_tracer.trace_request(request.query) as trace:
         try:
-            if request.categories:
-                raise HTTPException(status_code=400, detail="Category filtering is not implemented for ask yet")
-
             # Cache check
             if cache:
                 cached = await cache.find_cached_response(request)
@@ -185,9 +188,6 @@ async def ask_question_stream(
     langfuse: LangfuseDep,
 ) -> StreamingResponse:
     """Stream the answer token-by-token using Server-Sent Events."""
-    if request.categories:
-        raise HTTPException(status_code=400, detail="Category filtering is not implemented for ask yet")
-
     async def generate() -> AsyncIterator[str]:
         rag_tracer = RAGTracer(langfuse)
         start_time = time.time()

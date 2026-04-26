@@ -19,11 +19,6 @@ async def hybrid_search(
 ) -> SearchResponse:
     """Search paper chunks with BM25 or hybrid (BM25 + dense) mode."""
     try:
-        if request.categories:
-            raise HTTPException(status_code=400, detail="Category filtering is not implemented for search yet")
-        if request.latest_papers:
-            raise HTTPException(status_code=400, detail="Latest-paper filtering is not implemented for search yet")
-
         if not await run_in_threadpool(qdrant.health_check):
             raise HTTPException(status_code=503, detail="Search service unavailable")
 
@@ -37,25 +32,35 @@ async def hybrid_search(
             except Exception as e:
                 logger.warning(f"Embedding failed, falling back to BM25: {e}")
 
-        fetch_limit = request.from_ + request.size
         if query_embedding is not None:
             raw_hits = await run_in_threadpool(
                 qdrant.search_hybrid,
                 request.query,
                 dense_embedding=query_embedding,
-                limit=fetch_limit,
+                limit=request.size,
+                offset=request.from_,
+                categories=request.categories,
+                latest=request.latest_papers,
+                min_score=request.min_score,
             )
         else:
-            raw_hits = await run_in_threadpool(qdrant.search, request.query, limit=fetch_limit)
+            raw_hits = await run_in_threadpool(
+                qdrant.search,
+                request.query,
+                limit=request.size,
+                offset=request.from_,
+                categories=request.categories,
+                latest=request.latest_papers,
+                min_score=request.min_score,
+            )
 
         hits = [
             SearchHit(
-                # _format() only returns chunk-level fields; paper metadata fields
-                # (title, authors, etc.) are not stored in Qdrant payloads yet.
                 arxiv_id=h.get("arxiv_id", ""),
                 title=h.get("title", ""),
                 authors=h.get("authors"),
                 abstract=h.get("abstract"),
+                categories=h.get("categories"),
                 published_date=h.get("published_date"),
                 pdf_url=h.get("pdf_url"),
                 score=h.get("score", 0.0),
@@ -64,11 +69,6 @@ async def hybrid_search(
             )
             for h in raw_hits
         ]
-
-        hits = hits[request.from_ :]
-
-        if request.min_score > 0.0:
-            hits = [h for h in hits if h.score >= request.min_score]
 
         return SearchResponse.model_validate(
             {

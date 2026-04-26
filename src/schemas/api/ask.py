@@ -9,7 +9,7 @@ class AskRequest(BaseModel):
         True, description="Use hybrid search (BM25 + dense); falls back to BM25 if Jina is unreachable"
     )
     categories: list[str] | None = Field(
-        None, description="Filter by arXiv categories (e.g. ['q-bio.BM', 'q-bio.GN']); not yet implemented in search"
+        None, description="Filter retrieval to arXiv categories (e.g. ['q-bio.BM', 'q-bio.GN'])"
     )
 
 

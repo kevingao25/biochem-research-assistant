@@ -21,6 +21,7 @@ async def search_papers(
     jina: JinaDep,
     q: str = Query(..., description="Search query"),
     limit: int = Query(10, ge=1, le=50),
+    categories: list[str] | None = Query(None, description="Optional arXiv category filters"),
 ):
     """Hybrid BM25 + dense search using Qdrant native RRF fusion.
 
@@ -29,11 +30,17 @@ async def search_papers(
     """
     try:
         dense_embedding = await jina.embed_query(q)
-        hits = await run_in_threadpool(qdrant.search_hybrid, q, dense_embedding=dense_embedding, limit=limit)
+        hits = await run_in_threadpool(
+            qdrant.search_hybrid,
+            q,
+            dense_embedding=dense_embedding,
+            limit=limit,
+            categories=categories,
+        )
         search_mode = "hybrid"
     except Exception as e:
         logger.warning(f"Jina embedding failed, falling back to BM25: {e}")
-        hits = await run_in_threadpool(qdrant.search, q, limit=limit)
+        hits = await run_in_threadpool(qdrant.search, q, limit=limit, categories=categories)
         search_mode = "bm25"
 
     return SearchResponse(

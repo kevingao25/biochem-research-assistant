@@ -16,8 +16,9 @@ class HybridSearchRequest(BaseModel):
 class SearchHit(BaseModel):
     arxiv_id: str
     title: str
-    authors: str | None = None
+    authors: list[str] | None = None
     abstract: str | None = None
+    categories: list[str] | None = None
     published_date: str | None = None
     pdf_url: str | None = None
     score: float

@@ -68,7 +68,18 @@ def process_and_index_papers() -> dict:
             if chunks:
                 chunk_texts = [c.text for c in chunks]
                 dense_embeddings = asyncio.run(jina.embed_passages(chunk_texts))
-                qdrant.index_chunks(chunks, dense_embeddings=dense_embeddings)
+                qdrant.index_chunks(
+                    chunks,
+                    dense_embeddings=dense_embeddings,
+                    paper_metadata={
+                        "title": paper.title,
+                        "authors": paper.authors,
+                        "abstract": paper.abstract,
+                        "categories": paper.categories,
+                        "published_date": paper.published_date.isoformat() if paper.published_date else None,
+                        "pdf_url": paper.pdf_url,
+                    },
+                )
 
             paper.pdf_processed = True
             repo.update(paper)

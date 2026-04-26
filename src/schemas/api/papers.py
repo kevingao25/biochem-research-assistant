@@ -27,6 +27,12 @@ class SearchHit(BaseModel):
     chunk_text: str
     section_title: str | None
     score: float  # BM25 relevance score — higher means more relevant
+    title: str = ""
+    authors: list[str] | None = None
+    abstract: str | None = None
+    categories: list[str] | None = None
+    published_date: str | None = None
+    pdf_url: str | None = None
 
 
 # Returned by GET /papers/search?q=...
