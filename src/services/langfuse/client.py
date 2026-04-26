@@ -47,7 +47,7 @@ class LangfuseTracer:
         if session_id:
             trace_metadata["session_id"] = session_id
         try:
-            trace = self.client.start_observation(
+            trace_context = self.client.start_as_current_observation(
                 name="rag_request",
                 as_type="span",
                 input={"query": query},
@@ -58,13 +58,8 @@ class LangfuseTracer:
             yield None
             return
 
-        try:
+        with trace_context as trace:
             yield trace
-        finally:
-            try:
-                trace.end()
-            except Exception as e:
-                logger.error(f"Error ending Langfuse trace: {e}")
 
     def create_span(self, trace, name: str, input_data: dict[str, Any] | None = None):
         if not trace or not self.client:
@@ -92,6 +87,41 @@ class LangfuseTracer:
                 self.client.flush()
             except Exception as e:
                 logger.error(f"Langfuse flush error: {e}")
+
+    def get_trace_id(self, trace=None) -> str | None:
+        if not self.client:
+            return None
+        try:
+            trace_id = self.client.get_current_trace_id()
+            if trace_id:
+                return trace_id
+        except Exception as e:
+            logger.debug(f"Could not read current Langfuse trace id: {e}")
+
+        for attr in ("trace_id", "id"):
+            value = getattr(trace, attr, None)
+            if isinstance(value, str):
+                return value
+        return None
+
+    def submit_feedback(self, trace_id: str, score: float, comment: str | None = None) -> bool:
+        if not self.client:
+            logger.warning("Cannot submit feedback: Langfuse is disabled")
+            return False
+        try:
+            self.client.create_score(
+                name="user-feedback",
+                value=float(score),
+                trace_id=trace_id,
+                score_id=f"{trace_id}-user-feedback",
+                data_type="NUMERIC",
+                comment=comment,
+            )
+            self.flush()
+            return True
+        except Exception as e:
+            logger.error(f"Langfuse feedback error: {e}")
+            return False
 
     def shutdown(self):
         if self.client:

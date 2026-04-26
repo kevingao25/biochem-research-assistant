@@ -1,5 +1,6 @@
 class TestAgenticAskEndpoint:
     async def test_agentic_ask_returns_reasoning_steps(self, client, mocks):
+        mocks["langfuse"].get_trace_id.return_value = "trace-123"
         mocks["agentic_rag"].ask.return_value = {
             "answer": "CRISPR systems help bacteria defend against phages.",
             "sources": ["https://arxiv.org/pdf/2401.00001.pdf"],
@@ -17,6 +18,7 @@ class TestAgenticAskEndpoint:
         assert data["answer"].startswith("CRISPR systems")
         assert data["reasoning_steps"] == ["Guardrail passed.", "Retrieved chunks.", "Generated answer."]
         assert data["retrieval_attempts"] == 1
+        assert data["trace_id"] == "trace-123"
 
     async def test_agentic_ask_passes_request_options_to_service(self, client, mocks):
         mocks["agentic_rag"].ask.return_value = {
@@ -52,3 +54,24 @@ class TestAgenticAskEndpoint:
         response = await client.post("/api/v1/ask-agentic", json={"query": ""})
 
         assert response.status_code == 422
+
+    async def test_feedback_records_score(self, client, mocks):
+        response = await client.post(
+            "/api/v1/feedback",
+            json={"trace_id": "trace-123", "score": 1.0, "comment": "Useful answer"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        mocks["langfuse"].submit_feedback.assert_called_once_with(
+            trace_id="trace-123",
+            score=1.0,
+            comment="Useful answer",
+        )
+
+    async def test_feedback_returns_503_when_langfuse_unavailable(self, client, mocks):
+        mocks["langfuse"].submit_feedback.return_value = False
+
+        response = await client.post("/api/v1/feedback", json={"trace_id": "trace-123", "score": -1.0})
+
+        assert response.status_code == 503

@@ -17,12 +17,15 @@ async def _noop_lifespan(app):
 @pytest.fixture
 def mocks():
     """One mock per injected service. Tests set return_value as needed."""
+    langfuse = MagicMock()
+    langfuse.get_trace_id.return_value = None
+    langfuse.submit_feedback.return_value = True
     return {
         "qdrant": MagicMock(),  # search_hybrid / search are sync
         "jina": AsyncMock(),  # embed_query is async
         "ollama": AsyncMock(),  # generate / generate_stream are async
         "cache": AsyncMock(),  # get / set are async
-        "langfuse": MagicMock(),  # trace / span are sync context managers
+        "langfuse": langfuse,  # trace / span are sync context managers
         "agentic_rag": AsyncMock(),  # ask is async
     }
 

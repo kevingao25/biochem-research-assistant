@@ -25,3 +25,15 @@ class AgenticAskResponse(AskResponse):
     reasoning_steps: list[str]
     retrieval_attempts: int
     rewritten_query: str | None = None
+    trace_id: str | None = None
+
+
+class FeedbackRequest(BaseModel):
+    trace_id: str = Field(..., min_length=1, description="Langfuse trace id returned by /ask-agentic")
+    score: float = Field(..., ge=-1.0, le=1.0, description="User feedback score from -1 to 1")
+    comment: str | None = Field(None, max_length=1000, description="Optional feedback note")
+
+
+class FeedbackResponse(BaseModel):
+    success: bool
+    message: str
